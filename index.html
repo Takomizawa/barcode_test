@@ -8,7 +8,7 @@
     <style>
         :root {
             --primary-color: #007aff;
-            --mask-color: rgba(0, 0, 0, 0.6);
+            --mask-color: rgba(0, 0, 0, 0.4); /* 少し薄くして見やすく */
             --guide-color: #ffffff;
             --guide-active: #34c759;
             /* バトラー用カラー */
@@ -81,6 +81,8 @@
             stroke-width: 4;
             stroke-linecap: round;
             transition: stroke 0.3s;
+            /* 影をつけて視認性アップ */
+            filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.5));
         }
 
         #svg-overlay.success .guide-corner {
@@ -341,14 +343,16 @@
             const w = window.innerWidth;
             const h = window.innerHeight;
             
-            // バーコードバトラー用に少し横長にスキャンエリアを設定
-            const boxW = Math.min(600, w * 0.70);
-            const boxH = boxW * 0.5; 
+            // 【改善点】スキャンエリアを大幅に拡大 (横幅90%確保)
+            // 以前は70%かつ0.5倍の高さで狭かった
+            const boxW = Math.min(800, w * 0.90);
+            // 高さを十分に取ることで、カメラに入るほとんどの範囲をカバー
+            const boxH = Math.min(boxW * 1.0, h * 0.65); 
             
             const x = (w - boxW) / 2;
             const y = (h - boxH) / 2;
             const r = 24;
-            const lineLen = 30;
+            const lineLen = 40; // ガイド線も少し長く
 
             const dMask = `
                 M 0 0 H ${w} V ${h} H 0 Z
@@ -377,12 +381,11 @@
         function playSuccessSound() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
             
-            // レトロゲームっぽい音
             const t = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
-            osc.type = 'square'; // ファミコン風
+            osc.type = 'square'; 
             osc.frequency.setValueAtTime(880, t);
             osc.frequency.setValueAtTime(1760, t + 0.1);
             
@@ -403,14 +406,19 @@
             const qrBoxSize = updateOverlay();
             
             const config = {
-                fps: 15,
+                // 【改善点】FPSを上げて反応を良くする
+                fps: 25, 
+                // 【改善点】qrboxをUIの見た目と一致させる（広くする）
                 qrbox: qrBoxSize,
                 aspectRatio: window.innerHeight / window.innerWidth,
                 videoConstraints: {
                     facingMode: "environment",
-                    focusMode: "continuous"
+                    focusMode: "continuous",
+                    // 【改善点】高解像度を指定して精度アップを狙う
+                    // (ブラウザが対応していれば高画質カメラを使用)
+                    width: { min: 640, ideal: 1920, max: 3840 },
+                    height: { min: 480, ideal: 1080, max: 2160 }
                 },
-                // 全フォーマット対応
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.QR_CODE,
                     Html5QrcodeSupportedFormats.EAN_13,
@@ -444,34 +452,29 @@
             isScanning = false;
             
             playSuccessSound();
-            if (navigator.vibrate) navigator.vibrate([50, 50, 50]); // 3回振動
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
             
             html5QrCode.pause(true);
             svgOverlay.classList.add('success');
             
-            // --- ここでステータス生成 ---
             const stats = getSuperHeavyStats(decodedText);
             
             setTimeout(() => {
-                // 生データ表示
                 resText.innerText = decodedText;
                 resFormat.innerText = decodedResult.result.format.formatName;
                 
-                // ステータス反映
                 dispJob.innerText = stats.job;
                 dispTribe.innerText = `種族: ${stats.tribe}`;
                 dispHp.innerText = stats.hp;
                 dispSt.innerText = stats.st;
                 dispDf.innerText = stats.df;
 
-                // 職業によってバッジの色を変える（おまけ）
                 if (stats.job === '戦士') {
                     dispJob.style.color = '#007aff';
                 } else {
                     dispJob.style.color = '#af52de';
                 }
 
-                // ボタンリンク設定
                 if (decodedText.startsWith('http')) {
                     btnSearch.href = decodedText;
                     btnSearch.innerText = "Open Link";
@@ -495,7 +498,6 @@
         }
 
         function copyText() {
-            // ステータスも含めてコピーするように変更
             const statsText = `[SCAN DATA]\nCode: ${resText.innerText}\nClass: ${dispJob.innerText} (${dispTribe.innerText})\nHP: ${dispHp.innerText} / ST: ${dispSt.innerText} / DF: ${dispDf.innerText}`;
             
             navigator.clipboard.writeText(statsText).then(() => {
