@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Scanner</title>
+    <title>Barcode Battler Scanner</title>
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         :root {
@@ -11,6 +11,11 @@
             --mask-color: rgba(0, 0, 0, 0.6);
             --guide-color: #ffffff;
             --guide-active: #34c759;
+            /* バトラー用カラー */
+            --stat-bg: rgba(255, 255, 255, 0.08);
+            --hp-color: #ff3b30;
+            --st-color: #ffcc00;
+            --df-color: #00c7be;
         }
 
         body {
@@ -47,7 +52,6 @@
             height: 100% !important;
         }
 
-        /* 【重要】ライブラリが自動生成する余計なキャンバスや枠を強制非表示にする */
         #reader canvas, 
         #reader div:not(:first-child) { 
             display: none !important; 
@@ -102,6 +106,8 @@
         #result-modal {
             position: absolute;
             bottom: 0; left: 0; width: 100%;
+            max-height: 85vh; /* 画面が高すぎないように */
+            overflow-y: auto;
             background: rgba(28, 28, 30, 0.95);
             backdrop-filter: blur(20px);
             border-top-left-radius: 24px;
@@ -120,14 +126,68 @@
         #result-modal.visible { transform: translateY(0); }
 
         .modal-handle { width: 36px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-bottom: 24px; }
-        .result-format { font-size: 0.75rem; color: #8e8e93; margin-bottom: 8px; font-weight: 600; letter-spacing: 1px; }
-        .result-text { font-size: 1.5rem; font-weight: 700; color: #fff; margin-bottom: 32px; word-break: break-all; font-family: SFMono-Regular, Menlo, monospace; line-height: 1.3; }
         
+        /* バーコード情報（控えめに） */
+        .code-meta {
+            margin-bottom: 20px;
+            opacity: 0.7;
+        }
+        .result-format { font-size: 0.7rem; color: #8e8e93; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+        .result-text { font-size: 0.9rem; color: #fff; word-break: break-all; font-family: SFMono-Regular, Menlo, monospace; }
+
+        /* --- ステータス表示エリア --- */
+        .stats-container {
+            width: 100%;
+            margin-bottom: 24px;
+            background: var(--stat-bg);
+            border-radius: 16px;
+            padding: 20px;
+            box-sizing: border-box;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .class-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: #fff;
+            color: #000;
+            font-weight: 800;
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+        .tribe-name {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            text-align: center;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .stat-label { font-size: 0.7rem; color: #888; margin-bottom: 4px; font-weight: 700; }
+        .stat-value { font-size: 1.4rem; font-weight: 800; font-family: "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.5px; }
+
+        .val-hp { color: var(--hp-color); }
+        .val-st { color: var(--st-color); }
+        .val-df { color: var(--df-color); }
+
+        /* ボタン類 */
         .btn-group { display: flex; gap: 12px; width: 100%; }
         .btn { flex: 1; padding: 16px; border-radius: 14px; border: none; font-size: 1rem; font-weight: 600; cursor: pointer; }
         .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; }
-        .btn-primary { background: var(--primary-color); color: #fff; text-decoration: none; }
-        .btn-close { margin-top: 10px; background: transparent; color: #8e8e93; border: none; padding: 16px; cursor: pointer; font-size: 0.95rem; }
+        .btn-primary { background: var(--primary-color); color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+        .btn-close { margin-top: 10px; background: transparent; color: #8e8e93; border: none; padding: 16px; cursor: pointer; font-size: 0.95rem; width: 100%; }
 
     </style>
 </head>
@@ -138,7 +198,7 @@
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
             <circle cx="12" cy="13" r="4"></circle>
         </svg>
-        <div class="tap-msg">Tap to Scan</div>
+        <div class="tap-msg">Tap to Battle Scan</div>
     </div>
 
     <div id="scanner-wrapper">
@@ -151,16 +211,112 @@
 
     <div id="result-modal">
         <div class="modal-handle"></div>
-        <div class="result-format" id="res-format">FORMAT</div>
-        <div class="result-text" id="res-text">--</div>
-        <div class="btn-group">
-            <button class="btn btn-secondary" onclick="copyText()">Copy</button>
-            <a href="#" target="_blank" class="btn btn-primary" id="btn-search">Search</a>
+
+        <!-- ステータス表示 -->
+        <div class="stats-container">
+            <div class="class-badge" id="disp-job">--</div>
+            <div class="tribe-name" id="disp-tribe">--</div>
+            
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">HP</span>
+                    <span class="stat-value val-hp" id="disp-hp">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">攻撃 (ST)</span>
+                    <span class="stat-value val-st" id="disp-st">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">守備 (DF)</span>
+                    <span class="stat-value val-df" id="disp-df">0</span>
+                </div>
+            </div>
         </div>
-        <button class="btn-close" onclick="resetScanner()">Close</button>
+
+        <!-- 元のバーコード情報 -->
+        <div class="code-meta">
+            <div class="result-format" id="res-format">FORMAT</div>
+            <div class="result-text" id="res-text">--</div>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn btn-secondary" onclick="copyText()">Copy Data</button>
+            <a href="#" target="_blank" class="btn btn-primary" id="btn-search">Search Item</a>
+        </div>
+        <button class="btn-close" onclick="resetScanner()">Close & Rescan</button>
     </div>
 
     <script>
+        // ==========================================
+        //  超巨大素数バーコードバトラー ロジック
+        // ==========================================
+        function getSuperHeavyStats(rawInput) {
+            // M2281: 2^2281 - 1 (687桁の素数)
+            const SUPER_PRIME = 2n ** 2281n - 1n;
+            const MULTIPLIER = 127n; 
+
+            // 文字列をハッシュ化してSeed生成
+            let seed = 0n;
+            for (let i = 0; i < rawInput.length; i++) {
+                const charCode = BigInt(rawInput.charCodeAt(i));
+                seed = (seed * MULTIPLIER + charCode) % SUPER_PRIME;
+            }
+
+            // 乱数生成器 (LCG)
+            const rnd = () => {
+                seed = (seed * 48271n) % SUPER_PRIME;
+                const divisor = 100000000n;
+                const smallVal = Number(seed % divisor); 
+                return smallVal / 100000000;
+            };
+
+            // 職業・種族
+            const typeVal = Math.floor(rnd() * 6);
+            const tribes = ["メカ", "オーシャン", "アニマル"];
+            const jobs = ["戦士", "魔法使い"];
+            
+            const myTribe = tribes[Math.floor(typeVal / 2)];
+            const myJob = jobs[typeVal % 2];
+
+            // 補正計算
+            let corrections = { hp: 1.0, st: 1.0, df: 1.0 };
+
+            if (myJob === "戦士") {
+                corrections.hp *= 1.4; corrections.st *= 1.3; 
+            } else {
+                corrections.hp *= 0.7; corrections.st *= 0.6; corrections.df *= 1.2; 
+            }
+
+            if (myTribe === "メカ") { corrections.df *= 1.3; corrections.hp *= 1.1; }
+            else if (myTribe === "アニマル") { corrections.st *= 1.2; corrections.hp *= 1.1; }
+            else if (myTribe === "オーシャン") { corrections.hp *= 1.2; corrections.df *= 1.1; }
+
+            // ステータス算出
+            let rawHP = 1000 + Math.floor(rnd() * 9000);
+            let finalHP = Math.floor((rawHP * corrections.hp) / 100) * 100;
+            if (finalHP > 19900) finalHP = 19900;
+            if (finalHP < 1000) finalHP = 1000;
+
+            let rawST = 10 + Math.floor(rnd() * 80);
+            let finalST = Math.floor(rawST * corrections.st);
+            if (finalST > 99) finalST = 99;
+
+            let rawDF = 10 + Math.floor(rnd() * 80);
+            let finalDF = Math.floor(rawDF * corrections.df);
+            if (finalDF > 99) finalDF = 99;
+
+            return {
+                tribe: myTribe,
+                job: myJob,
+                hp: finalHP,
+                st: finalST,
+                df: finalDF
+            };
+        }
+
+        // ==========================================
+        //  スキャナー & UI ロジック
+        // ==========================================
         const html5QrCode = new Html5Qrcode("reader");
         let isScanning = false;
         
@@ -174,14 +330,20 @@
         const resText = document.getElementById('res-text');
         const btnSearch = document.getElementById('btn-search');
 
-        // SVG描画更新
+        // ステータス表示用要素
+        const dispJob = document.getElementById('disp-job');
+        const dispTribe = document.getElementById('disp-tribe');
+        const dispHp = document.getElementById('disp-hp');
+        const dispSt = document.getElementById('disp-st');
+        const dispDf = document.getElementById('disp-df');
+
         function updateOverlay() {
             const w = window.innerWidth;
             const h = window.innerHeight;
             
-            // 画面幅の70%を基準に計算
+            // バーコードバトラー用に少し横長にスキャンエリアを設定
             const boxW = Math.min(600, w * 0.70);
-            const boxH = boxW * 0.6; // バーコード用に少し横長に変更(0.6)
+            const boxH = boxW * 0.5; 
             
             const x = (w - boxW) / 2;
             const y = (h - boxH) / 2;
@@ -214,16 +376,23 @@
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playSuccessSound() {
             if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            // レトロゲームっぽい音
+            const t = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(500, audioCtx.currentTime + 0.1);
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            
+            osc.type = 'square'; // ファミコン風
+            osc.frequency.setValueAtTime(880, t);
+            osc.frequency.setValueAtTime(1760, t + 0.1);
+            
+            gain.gain.setValueAtTime(0.1, t);
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
+            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.15);
+            osc.stop(t + 0.2);
         }
 
         function startCamera() {
@@ -241,6 +410,7 @@
                     facingMode: "environment",
                     focusMode: "continuous"
                 },
+                // 全フォーマット対応
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.QR_CODE,
                     Html5QrcodeSupportedFormats.EAN_13,
@@ -250,9 +420,7 @@
                     Html5QrcodeSupportedFormats.ITF,
                     Html5QrcodeSupportedFormats.CODABAR,
                     Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E,
-                    Html5QrcodeSupportedFormats.RSS_14,
-                    Html5QrcodeSupportedFormats.RSS_EXPANDED
+                    Html5QrcodeSupportedFormats.UPC_E
                 ]
             };
 
@@ -276,22 +444,40 @@
             isScanning = false;
             
             playSuccessSound();
-            if (navigator.vibrate) navigator.vibrate([50]);
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]); // 3回振動
             
             html5QrCode.pause(true);
-            
             svgOverlay.classList.add('success');
             
+            // --- ここでステータス生成 ---
+            const stats = getSuperHeavyStats(decodedText);
+            
             setTimeout(() => {
+                // 生データ表示
                 resText.innerText = decodedText;
                 resFormat.innerText = decodedResult.result.format.formatName;
                 
+                // ステータス反映
+                dispJob.innerText = stats.job;
+                dispTribe.innerText = `種族: ${stats.tribe}`;
+                dispHp.innerText = stats.hp;
+                dispSt.innerText = stats.st;
+                dispDf.innerText = stats.df;
+
+                // 職業によってバッジの色を変える（おまけ）
+                if (stats.job === '戦士') {
+                    dispJob.style.color = '#007aff';
+                } else {
+                    dispJob.style.color = '#af52de';
+                }
+
+                // ボタンリンク設定
                 if (decodedText.startsWith('http')) {
                     btnSearch.href = decodedText;
                     btnSearch.innerText = "Open Link";
                 } else {
                     btnSearch.href = `https://www.google.com/search?q=${encodeURIComponent(decodedText)}`;
-                    btnSearch.innerText = "Search";
+                    btnSearch.innerText = "Search Item";
                 }
                 
                 resultModal.classList.add('visible');
@@ -309,7 +495,10 @@
         }
 
         function copyText() {
-            navigator.clipboard.writeText(resText.innerText).then(() => {
+            // ステータスも含めてコピーするように変更
+            const statsText = `[SCAN DATA]\nCode: ${resText.innerText}\nClass: ${dispJob.innerText} (${dispTribe.innerText})\nHP: ${dispHp.innerText} / ST: ${dispSt.innerText} / DF: ${dispDf.innerText}`;
+            
+            navigator.clipboard.writeText(statsText).then(() => {
                 const btn = document.querySelector('.btn-secondary');
                 const original = btn.innerText;
                 btn.innerText = "Copied!";
