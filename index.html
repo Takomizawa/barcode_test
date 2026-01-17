@@ -8,18 +8,28 @@
     <style>
         :root {
             --primary-color: #007aff;
-            --mask-color: rgba(0, 0, 0, 0.4); /* 少し薄くして見やすく */
+            --p1-color: #0a84ff;
+            --p2-color: #ff453a;
+            --mask-color: rgba(0, 0, 0, 0.6);
             --guide-color: #ffffff;
-            --guide-active: #34c759;
-            /* バトラー用カラー */
-            --stat-bg: rgba(255, 255, 255, 0.08);
-            --hp-color: #ff3b30;
-            --st-color: #ffcc00;
-            --df-color: #00c7be;
+            --guide-active: #ffd60a;
+            
+            /* UI Colors */
+            --stat-bg: #1c1c1e;
+            --hp-color: #ff453a;
+            --st-color: #ffd60a;
+            --df-color: #32d74b;
+            
+            /* Rarity Colors */
+            --rarity-1: #8e8e93;
+            --rarity-2: #32d74b;
+            --rarity-3: #0a84ff;
+            --rarity-4: #bf5af2;
+            --rarity-5: #ffd60a;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, sans-serif;
+            font-family: "SF Pro Text", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
             background-color: #000;
             color: #fff;
             margin: 0;
@@ -36,7 +46,10 @@
             flex: 1;
             width: 100%;
             height: 100%;
-            background: #000;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
         #reader {
@@ -51,464 +64,1121 @@
             width: 100% !important;
             height: 100% !important;
         }
+        #reader canvas, #reader div:not(:first-child) { display: none !important; }
 
-        #reader canvas, 
-        #reader div:not(:first-child) { 
-            display: none !important; 
+        /* --- UI Overlay --- */
+        #ui-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+        
+        /* プレイヤーインジケーター */
+        .player-turn-bar {
+            position: absolute;
+            top: 50px; left: 0; width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: auto;
+        }
+        .turn-badge {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(8px);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        .turn-badge.p1 { border-color: var(--p1-color); color: var(--p1-color); box-shadow: 0 0 10px rgba(10, 132, 255, 0.3); }
+        .turn-badge.p2 { border-color: var(--p2-color); color: var(--p2-color); box-shadow: 0 0 10px rgba(255, 69, 58, 0.3); }
+
+        /* 情報バー (HUD風) */
+        .info-bar {
+            position: absolute;
+            top: 90px; left: 0; width: 100%;
+            display: flex;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 10, 15, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 24px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 700;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+            gap: 12px;
+            transition: all 0.2s;
+            min-width: 200px;
+            position: relative;
+            overflow: hidden;
+        }
+        .status-pill::before {
+            content: ''; position: absolute; top:0; left:0; width: 4px; height: 100%;
+            background: var(--guide-active); opacity: 0.8;
+        }
+        .status-pill:active { transform: scale(0.98); }
+        
+        #p-job { color: var(--guide-active); font-family: monospace; letter-spacing: 0.5px; }
+        #p-name { color: #fff; letter-spacing: 0.5px; }
+        .divider { width: 1px; height: 12px; background: rgba(255,255,255,0.3); }
+
+        .status-pill.complete {
+            border-color: var(--guide-active);
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.2);
         }
 
-        /* --- SVGマスク & ガイド --- */
+        /* ステップインジケーター */
+        .step-indicator {
+            position: absolute;
+            top: 150px;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            pointer-events: none;
+        }
+        .step-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            transition: all 0.3s;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .step-dot.active {
+            background: #fff;
+            transform: scale(1.4);
+            box-shadow: 0 0 8px rgba(255,255,255,0.8);
+            border-color: #fff;
+        }
+        .step-dot.done {
+            background: var(--guide-active);
+            border-color: var(--guide-active);
+            box-shadow: 0 0 5px var(--guide-active);
+        }
+        .step-line {
+            width: 24px; height: 2px;
+            background: rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .step-line.done { background: var(--guide-active); opacity: 0.8; }
+
+        .scan-hint {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%);
+            padding-bottom: 50px;
+            padding-top: 60px;
+        }
+
+        /* --- SVGマスク --- */
         #svg-overlay {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 10;
-            pointer-events: none;
-            opacity: 0;
-            transition: opacity 0.3s ease;
+            z-index: 5;
         }
-
-        #svg-overlay.active { opacity: 1; }
-
-        .mask-path {
-            fill: var(--mask-color);
-            fill-rule: evenodd;
-        }
-
+        .mask-path { fill: var(--mask-color); fill-rule: evenodd; transition: fill 0.3s; }
         .guide-corner {
-            fill: none;
-            stroke: var(--guide-color);
-            stroke-width: 4;
-            stroke-linecap: round;
-            transition: stroke 0.3s;
-            /* 影をつけて視認性アップ */
+            fill: none; stroke: var(--guide-color); stroke-width: 4;
+            stroke-linecap: round; transition: stroke 0.3s;
             filter: drop-shadow(0px 0px 4px rgba(0,0,0,0.5));
         }
-
-        #svg-overlay.success .guide-corner {
-            stroke: var(--guide-active);
-        }
+        #svg-overlay.active .guide-corner { stroke: var(--guide-active); }
+        #svg-overlay.char-mode .guide-corner { stroke: var(--primary-color); }
+        #svg-overlay.complete .guide-corner { stroke: transparent; } 
 
         /* --- スタート画面 --- */
         #start-screen {
             position: absolute;
             top: 0; left: 0; width: 100%; height: 100%;
             background: #000;
-            z-index: 100;
+            z-index: 200;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
             cursor: pointer;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.5s;
         }
-        .tap-msg { margin-top: 20px; font-size: 1.1rem; color: #888; font-weight: 500; }
-        
-        /* --- 結果モーダル --- */
-        #result-modal {
+        .title-logo {
+            font-size: 3rem;
+            font-weight: 900;
+            line-height: 1;
+            text-align: center;
+            letter-spacing: -1px;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(255,255,255,0.3);
+        }
+        .title-sub {
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 4px;
+            color: var(--primary-color);
+            margin-top: -30px;
+            margin-bottom: 60px;
+            text-transform: uppercase;
+        }
+        .tap-start {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #888;
+            animation: blink 1.5s infinite;
+            letter-spacing: 2px;
+        }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* --- ターンチェンジ画面 (共通) --- */
+        #turn-screen {
             position: absolute;
-            bottom: 0; left: 0; width: 100%;
-            max-height: 85vh; /* 画面が高すぎないように */
-            overflow-y: auto;
-            background: rgba(28, 28, 30, 0.95);
-            backdrop-filter: blur(20px);
-            border-top-left-radius: 24px;
-            border-top-right-radius: 24px;
-            padding: 24px 24px 40px;
-            box-sizing: border-box;
-            transform: translateY(110%);
-            transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);
-            z-index: 50;
-            display: flex;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 60;
+            display: none;
             flex-direction: column;
+            justify-content: center;
             align-items: center;
             text-align: center;
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+            transition: opacity 0.3s;
         }
-        #result-modal.visible { transform: translateY(0); }
-
-        .modal-handle { width: 36px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin-bottom: 24px; }
+        #turn-screen.visible { display: flex; }
         
-        /* バーコード情報（控えめに） */
-        .code-meta {
-            margin-bottom: 20px;
-            opacity: 0.7;
+        .turn-label { font-size: 1rem; color: #888; margin-bottom: 10px; letter-spacing: 2px; }
+        .turn-player { 
+            font-size: 4rem; font-weight: 900; line-height: 1; margin-bottom: 40px; 
+            text-transform: uppercase; font-style: italic;
         }
-        .result-format { font-size: 0.7rem; color: #8e8e93; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-        .result-text { font-size: 0.9rem; color: #fff; word-break: break-all; font-family: SFMono-Regular, Menlo, monospace; }
+        .p1-text { color: var(--p1-color); text-shadow: 0 0 20px rgba(10,132,255,0.4); }
+        .p2-text { color: var(--p2-color); text-shadow: 0 0 20px rgba(255,69,58,0.4); }
 
-        /* --- ステータス表示エリア --- */
-        .stats-container {
-            width: 100%;
-            margin-bottom: 24px;
-            background: var(--stat-bg);
-            border-radius: 16px;
+        /* --- VS画面 (比較用) --- */
+        #vs-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #111;
+            z-index: 200; /* 最前面 */
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding-bottom: 40px;
+        }
+        #vs-screen.visible { display: flex; }
+        
+        .vs-header {
+            text-align: center;
+            padding: 20px 0;
+            font-size: 2.5rem;
+            font-weight: 900;
+            font-style: italic;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            background: linear-gradient(to bottom, #1a1a1a, #000);
+            border-bottom: 1px solid #333;
+        }
+
+        .vs-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column; /* スマホなら縦並び */
             padding: 20px;
-            box-sizing: border-box;
-            border: 1px solid rgba(255,255,255,0.1);
+            gap: 20px;
         }
 
-        .class-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            background: #fff;
-            color: #000;
+        .player-card {
+            background: #222;
+            border-radius: 16px;
+            padding: 16px;
+            border: 2px solid #444;
+            position: relative;
+        }
+        .player-card.p1 { border-color: var(--p1-color); background: linear-gradient(135deg, rgba(0,122,255,0.1), rgba(0,0,0,0)); }
+        .player-card.p2 { border-color: var(--p2-color); background: linear-gradient(135deg, rgba(255,59,48,0.1), rgba(0,0,0,0)); }
+
+        .pc-label {
+            position: absolute;
+            top: -12px; left: 20px;
+            background: #000;
+            padding: 2px 12px;
             font-weight: 800;
-            font-size: 0.9rem;
-            margin-bottom: 4px;
+            font-size: 0.8rem;
+            border-radius: 4px;
+            border: 1px solid #333;
         }
-        .tribe-name {
-            font-size: 0.85rem;
-            color: #aaa;
-            margin-bottom: 16px;
-            font-weight: 600;
-        }
+        .pc-label.p1 { color: var(--p1-color); border-color: var(--p1-color); }
+        .pc-label.p2 { color: var(--p2-color); border-color: var(--p2-color); }
 
-        .stats-grid {
+        .pc-info { text-align: center; margin-bottom: 15px; margin-top: 10px;}
+        .pc-name { font-size: 1.2rem; font-weight: 800; font-family: monospace; }
+        .pc-job { font-size: 0.8rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; }
+
+        .pc-stats {
             display: grid;
             grid-template-columns: 1fr 1fr 1fr;
-            gap: 12px;
             text-align: center;
+            gap: 5px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 10px 0;
+            margin-bottom: 10px;
         }
-
-        .stat-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .pc-equip-list { font-size: 0.8rem; }
+        .pc-equip-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .pc-equip-item:last-child { border-bottom: none; }
+        
+        /* --- モーダル (共通) --- */
+        .modal {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            max-height: 85vh;
+            overflow-y: auto;
+            background: var(--stat-bg);
+            border-top-left-radius: 24px;
+            border-top-right-radius: 24px;
+            padding: 24px;
+            box-sizing: border-box;
+            transform: translateY(110%);
+            transition: transform 0.4s cubic-bezier(0.19, 1, 0.22, 1);
+            z-index: 50;
+            color: #fff;
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.6);
+            pointer-events: auto;
         }
-        .stat-label { font-size: 0.7rem; color: #888; margin-bottom: 4px; font-weight: 700; }
-        .stat-value { font-size: 1.4rem; font-weight: 800; font-family: "Helvetica Neue", Arial, sans-serif; letter-spacing: -0.5px; }
+        .modal.visible { transform: translateY(0); }
+        .modal-handle { width: 40px; height: 5px; background: rgba(255,255,255,0.2); border-radius: 3px; margin: 0 auto 24px; }
 
+        /* --- キャラクターステータス --- */
+        .char-card {
+            background: rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .char-title { font-size: 0.8rem; color: #aaa; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .char-name { font-size: 1.4rem; font-weight: 800; margin-bottom: 4px; }
+        .char-job { display: inline-block; font-size: 0.75rem; font-weight: bold; background: #fff; color: #000; padding: 2px 8px; border-radius: 4px; margin-bottom: 16px; }
+
+        .stats-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .stat-col { flex: 1; text-align: center; }
+        .stat-label { font-size: 0.7rem; color: #888; font-weight: 700; display: block; }
+        .stat-val { font-size: 1.5rem; font-weight: 800; font-family: "Helvetica Neue", sans-serif; }
+        
         .val-hp { color: var(--hp-color); }
         .val-st { color: var(--st-color); }
         .val-df { color: var(--df-color); }
 
-        /* ボタン類 */
-        .btn-group { display: flex; gap: 12px; width: 100%; }
-        .btn { flex: 1; padding: 16px; border-radius: 14px; border: none; font-size: 1rem; font-weight: 600; cursor: pointer; }
-        .btn-secondary { background: rgba(255,255,255,0.12); color: #fff; }
-        .btn-primary { background: var(--primary-color); color: #fff; text-decoration: none; display: flex; align-items: center; justify-content: center; }
-        .btn-close { margin-top: 10px; background: transparent; color: #8e8e93; border: none; padding: 16px; cursor: pointer; font-size: 0.95rem; width: 100%; }
+        /* 装備リスト */
+        .equip-list {
+            margin-top: 15px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 10px;
+        }
+        .equip-slot {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            font-size: 0.9rem;
+        }
+        .equip-slot:last-child { border-bottom: none; }
+        .slot-label { font-size: 0.7rem; color: #666; width: 24px; text-align:center; font-weight:bold; }
+        .slot-item { flex: 1; color: #fff; font-weight: bold; text-align: left; padding-left: 10px; }
+        .slot-empty { color: #444; font-weight: normal; font-style: italic; }
+        .slot-stats { font-size: 0.7rem; color: var(--guide-active); }
+
+
+        /* --- アイテムカード --- */
+        .item-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+            border-radius: 16px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            animation: slideUp 0.4s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        .rarity-stars { font-size: 1.2rem; margin-bottom: 8px; letter-spacing: 2px; }
+        .item-type { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8; margin-bottom: 4px; }
+        .item-name { font-size: 1.4rem; font-weight: 800; margin-bottom: 16px; line-height: 1.3; }
+        
+        .item-diff {
+            display: flex; justify-content: center; gap: 16px;
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 12px;
+        }
+        .diff-val { font-size: 1rem; font-weight: bold; }
+        .diff-plus { color: var(--st-color); }
+
+        .item-card[data-rarity="1"] { border-color: var(--rarity-1); box-shadow: 0 0 15px rgba(142,142,147,0.1); }
+        .item-card[data-rarity="1"] .rarity-stars { color: var(--rarity-1); }
+        .item-card[data-rarity="2"] { border-color: var(--rarity-2); box-shadow: 0 0 15px rgba(50,215,75,0.2); }
+        .item-card[data-rarity="2"] .rarity-stars { color: var(--rarity-2); }
+        .item-card[data-rarity="3"] { border-color: var(--rarity-3); box-shadow: 0 0 20px rgba(10,132,255,0.3); }
+        .item-card[data-rarity="3"] .rarity-stars { color: var(--rarity-3); }
+        .item-card[data-rarity="4"] { border-color: var(--rarity-4); box-shadow: 0 0 25px rgba(191,90,242,0.4); }
+        .item-card[data-rarity="4"] .rarity-stars { color: var(--rarity-4); }
+        .item-card[data-rarity="5"] { 
+            border-color: var(--rarity-5); 
+            box-shadow: 0 0 30px rgba(255,214,10,0.5); 
+            background: linear-gradient(135deg, rgba(255,214,10,0.2) 0%, rgba(0,0,0,0) 100%);
+        }
+        .item-card[data-rarity="5"] .rarity-stars { color: var(--rarity-5); text-shadow: 0 0 10px var(--rarity-5); }
+
+
+        /* ボタン */
+        .btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 12px;
+            border: none;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            background: #333;
+            color: #fff;
+            margin-top: 10px;
+        }
+        .btn-primary { background: var(--primary-color); }
+        .btn-equip { background: var(--guide-active); color: #000; }
+        .btn-danger { background: #ff3b30; color: #fff; }
+
+        /* Toast */
+        #toast {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85); padding: 16px 32px; border-radius: 30px;
+            font-weight: bold; pointer-events: none; opacity: 0; transition: opacity 0.3s;
+            z-index: 200; white-space: nowrap; border: 1px solid rgba(255,255,255,0.2);
+        }
+        #toast.show { opacity: 1; }
 
     </style>
 </head>
 <body>
 
-    <div id="start-screen" onclick="startCamera()">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
-            <circle cx="12" cy="13" r="4"></circle>
-        </svg>
-        <div class="tap-msg">Tap to Battle Scan</div>
+    <!-- 1. カッコいいスタート画面 -->
+    <div id="start-screen" onclick="initApp()">
+        <div class="title-logo">BARCODE<br>BATTLER</div>
+        <div class="title-sub">SCAN & FIGHT</div>
+        <div class="tap-start">TAP TO START</div>
     </div>
 
     <div id="scanner-wrapper">
         <div id="reader"></div>
+        
+        <!-- ターン開始画面 (共通) -->
+        <div id="turn-screen">
+            <div class="turn-label">CURRENT TURN</div>
+            <div class="turn-player" id="turn-player-text">PLAYER 1</div>
+            <button class="btn btn-primary" style="width:200px;" onclick="startTurnAction()">READY</button>
+        </div>
+
+        <!-- VS画面 (完了画面) -->
+        <div id="vs-screen">
+            <div class="vs-header">VS</div>
+            <div class="vs-container">
+                <!-- P1 Card -->
+                <div class="player-card p1" id="vs-p1-card">
+                    <div class="pc-label p1">PLAYER 1</div>
+                    <div class="pc-info">
+                        <div class="pc-name" id="vs-p1-name">--</div>
+                        <div class="pc-job" id="vs-p1-job">--</div>
+                    </div>
+                    <div class="pc-stats">
+                        <div>
+                            <span class="stat-label">HP</span>
+                            <span class="stat-val val-hp" id="vs-p1-hp">0</span>
+                        </div>
+                        <div>
+                            <span class="stat-label">ST</span>
+                            <span class="stat-val val-st" id="vs-p1-st">0</span>
+                        </div>
+                        <div>
+                            <span class="stat-label">DF</span>
+                            <span class="stat-val val-df" id="vs-p1-df">0</span>
+                        </div>
+                    </div>
+                    <div class="pc-equip-list" id="vs-p1-equip"></div>
+                </div>
+
+                <!-- P2 Card -->
+                <div class="player-card p2" id="vs-p2-card">
+                    <div class="pc-label p2">PLAYER 2</div>
+                    <div class="pc-info">
+                        <div class="pc-name" id="vs-p2-name">--</div>
+                        <div class="pc-job" id="vs-p2-job">--</div>
+                    </div>
+                    <div class="pc-stats">
+                        <div>
+                            <span class="stat-label">HP</span>
+                            <span class="stat-val val-hp" id="vs-p2-hp">0</span>
+                        </div>
+                        <div>
+                            <span class="stat-label">ST</span>
+                            <span class="stat-val val-st" id="vs-p2-st">0</span>
+                        </div>
+                        <div>
+                            <span class="stat-label">DF</span>
+                            <span class="stat-val val-df" id="vs-p2-df">0</span>
+                        </div>
+                    </div>
+                    <div class="pc-equip-list" id="vs-p2-equip"></div>
+                </div>
+            </div>
+            <div style="padding:20px;">
+                <button class="btn btn-danger" onclick="resetApp()">NEW BATTLE</button>
+            </div>
+        </div>
+
         <svg id="svg-overlay" width="100%" height="100%">
             <path id="mask-path" class="mask-path" d="" />
             <path id="guide-path" class="guide-corner" d="" />
         </svg>
+        
+        <div id="ui-layer">
+            <div class="player-turn-bar">
+                <div class="turn-badge p1" id="turn-badge">PLAYER 1 TURN</div>
+            </div>
+
+            <!-- 情報バー (HUD風に改良) -->
+            <div class="info-bar">
+                <div class="status-pill" id="player-status" onclick="showCharModal()">
+                    <span id="p-job">No Data</span>
+                    <div class="divider"></div>
+                    <span id="p-name">Scan Barcode</span>
+                </div>
+            </div>
+
+            <!-- ステップ表示エリア -->
+            <div class="step-indicator">
+                <div class="step-dot active" id="dot-1"></div>
+                <div class="step-line" id="line-1"></div>
+                <div class="step-dot" id="dot-2"></div>
+                <div class="step-line" id="line-2"></div>
+                <div class="step-dot" id="dot-3"></div>
+            </div>
+
+            <div class="scan-hint" id="scan-hint-text">
+                まずはバーコード(JAN)をスキャン！
+            </div>
+        </div>
+        
+        <div id="toast">Message</div>
     </div>
 
-    <div id="result-modal">
+    <!-- 1. キャラクター詳細モーダル -->
+    <div id="char-modal" class="modal">
         <div class="modal-handle"></div>
-
-        <!-- ステータス表示 -->
-        <div class="stats-container">
-            <div class="class-badge" id="disp-job">--</div>
-            <div class="tribe-name" id="disp-tribe">--</div>
+        <div class="char-card">
+            <div class="char-title">Current Character</div>
+            <div class="char-name" id="cm-name">--</div>
+            <div class="char-job" id="cm-job">--</div>
             
-            <div class="stats-grid">
-                <div class="stat-item">
+            <div class="stats-row">
+                <div class="stat-col">
                     <span class="stat-label">HP</span>
-                    <span class="stat-value val-hp" id="disp-hp">0</span>
+                    <span class="stat-val val-hp" id="cm-hp">0</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">攻撃 (ST)</span>
-                    <span class="stat-value val-st" id="disp-st">0</span>
+                <div class="stat-col">
+                    <span class="stat-label">ST</span>
+                    <span class="stat-val val-st" id="cm-st">0</span>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">守備 (DF)</span>
-                    <span class="stat-value val-df" id="disp-df">0</span>
+                <div class="stat-col">
+                    <span class="stat-label">DF</span>
+                    <span class="stat-val val-df" id="cm-df">0</span>
+                </div>
+            </div>
+
+            <!-- 装備スロット (2つまで) -->
+            <div class="equip-list">
+                <div class="equip-slot">
+                    <span class="slot-label">1</span>
+                    <span class="slot-item" id="slot-1-name">なし</span>
+                    <span class="slot-stats" id="slot-1-stats"></span>
+                </div>
+                <div class="equip-slot">
+                    <span class="slot-label">2</span>
+                    <span class="slot-item" id="slot-2-name">なし</span>
+                    <span class="slot-stats" id="slot-2-stats"></span>
                 </div>
             </div>
         </div>
+        
+        <button id="btn-close-char" class="btn" onclick="closeModal()">閉じる</button>
+    </div>
 
-        <!-- 元のバーコード情報 -->
-        <div class="code-meta">
-            <div class="result-format" id="res-format">FORMAT</div>
-            <div class="result-text" id="res-text">--</div>
+    <!-- 2. アイテム発見モーダル -->
+    <div id="item-modal" class="modal">
+        <div class="modal-handle"></div>
+        <div style="text-align:center; font-weight:bold; color:#ffd60a; margin-bottom:10px;">ITEM DISCOVERED!</div>
+        
+        <div class="item-card" id="new-item-card" data-rarity="1">
+            <div class="rarity-stars" id="item-stars">★</div>
+            <div class="item-type" id="item-type">WEAPON</div>
+            <div class="item-name" id="item-name">錆びた剣</div>
+            
+            <div class="item-diff">
+                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">ST</span> <span id="item-st" class="diff-plus">+0</span></div>
+                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">DF</span> <span id="item-df" class="diff-plus">+0</span></div>
+                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">HP</span> <span id="item-hp" class="diff-plus">+0</span></div>
+            </div>
         </div>
 
-        <div class="btn-group">
-            <button class="btn btn-secondary" onclick="copyText()">Copy Data</button>
-            <a href="#" target="_blank" class="btn btn-primary" id="btn-search">Search Item</a>
-        </div>
-        <button class="btn-close" onclick="resetScanner()">Close & Rescan</button>
+        <button class="btn btn-equip" onclick="equipItem()">装備する</button>
+        <button class="btn" style="background:transparent; color:#888; margin-top:0;" onclick="discardItem()">破棄する</button>
     </div>
 
     <script>
         // ==========================================
-        //  超巨大素数バーコードバトラー ロジック
+        //  超巨大素数ロジック: M2281
         // ==========================================
-        function getSuperHeavyStats(rawInput) {
-            // M2281: 2^2281 - 1 (687桁の素数)
-            const SUPER_PRIME = 2n ** 2281n - 1n;
-            const MULTIPLIER = 127n; 
+        const M2281_PRIME = 2n ** 2281n - 1n;
 
-            // 文字列をハッシュ化してSeed生成
+        function generateSeed(str) {
             let seed = 0n;
-            for (let i = 0; i < rawInput.length; i++) {
-                const charCode = BigInt(rawInput.charCodeAt(i));
-                seed = (seed * MULTIPLIER + charCode) % SUPER_PRIME;
+            const MULTIPLIER = 127n;
+            for (let i = 0; i < str.length; i++) {
+                seed = (seed * MULTIPLIER + BigInt(str.charCodeAt(i))) % M2281_PRIME;
             }
+            return seed;
+        }
 
-            // 乱数生成器 (LCG)
-            const rnd = () => {
-                seed = (seed * 48271n) % SUPER_PRIME;
-                const divisor = 100000000n;
-                const smallVal = Number(seed % divisor); 
-                return smallVal / 100000000;
-            };
-
-            // 職業・種族
-            const typeVal = Math.floor(rnd() * 6);
-            const tribes = ["メカ", "オーシャン", "アニマル"];
-            const jobs = ["戦士", "魔法使い"];
-            
-            const myTribe = tribes[Math.floor(typeVal / 2)];
-            const myJob = jobs[typeVal % 2];
-
-            // 補正計算
-            let corrections = { hp: 1.0, st: 1.0, df: 1.0 };
-
-            if (myJob === "戦士") {
-                corrections.hp *= 1.4; corrections.st *= 1.3; 
-            } else {
-                corrections.hp *= 0.7; corrections.st *= 0.6; corrections.df *= 1.2; 
-            }
-
-            if (myTribe === "メカ") { corrections.df *= 1.3; corrections.hp *= 1.1; }
-            else if (myTribe === "アニマル") { corrections.st *= 1.2; corrections.hp *= 1.1; }
-            else if (myTribe === "オーシャン") { corrections.hp *= 1.2; corrections.df *= 1.1; }
-
-            // ステータス算出
-            let rawHP = 1000 + Math.floor(rnd() * 9000);
-            let finalHP = Math.floor((rawHP * corrections.hp) / 100) * 100;
-            if (finalHP > 19900) finalHP = 19900;
-            if (finalHP < 1000) finalHP = 1000;
-
-            let rawST = 10 + Math.floor(rnd() * 80);
-            let finalST = Math.floor(rawST * corrections.st);
-            if (finalST > 99) finalST = 99;
-
-            let rawDF = 10 + Math.floor(rnd() * 80);
-            let finalDF = Math.floor(rawDF * corrections.df);
-            if (finalDF > 99) finalDF = 99;
-
-            return {
-                tribe: myTribe,
-                job: myJob,
-                hp: finalHP,
-                st: finalST,
-                df: finalDF
+        function createRNG(seed) {
+            return () => {
+                seed = (seed * 48271n) % M2281_PRIME;
+                return Number(seed % 100000000n) / 100000000;
             };
         }
 
+        function generateChar(code) {
+            const rng = createRNG(generateSeed(code));
+            
+            const typeVal = Math.floor(rng() * 6);
+            const tribe = ["メカ", "オーシャン", "アニマル"][Math.floor(typeVal/2)];
+            const job = ["戦士", "魔法使い"][typeVal%2];
+
+            let mod = { hp: 1.0, st: 1.0, df: 1.0 };
+            if (job === "戦士") { mod.hp=1.4; mod.st=1.3; } 
+            else { mod.hp=0.7; mod.st=0.7; mod.df=1.2; }
+            
+            if (tribe === "メカ") { mod.df*=1.3; mod.hp*=1.1; }
+            else if (tribe === "アニマル") { mod.st*=1.2; mod.hp*=1.1; }
+            else { mod.hp*=1.2; mod.df*=1.1; }
+
+            let hp = Math.floor((3000 + rng()*12000) * mod.hp / 100) * 100;
+            if(hp>19900) hp=19900; if(hp<1000) hp=1000;
+            
+            let st = Math.floor((500 + rng()*1500) * mod.st);
+            if(st>2500) st=2500;
+            
+            let df = Math.floor((500 + rng()*1500) * mod.df);
+            if(df>2500) df=2500;
+
+            return { 
+                id: code, tribe, job, 
+                baseHp: hp, baseSt: st, baseDf: df,
+                hp, maxHp: hp, st, df, 
+                items: [] 
+            };
+        }
+
+        function generateItem(code) {
+            const rng = createRNG(generateSeed(code));
+            
+            const rRand = rng();
+            let rarity = 1; 
+            if (rRand > 0.99) rarity = 5;      
+            else if (rRand > 0.95) rarity = 4; 
+            else if (rRand > 0.85) rarity = 3; 
+            else if (rRand > 0.60) rarity = 2; 
+            
+            const typeRand = rng();
+            let type = "accessory";
+            if (typeRand < 0.4) type = "weapon";
+            else if (typeRand < 0.8) type = "armor";
+
+            const prefixes = {
+                1: ["錆びた", "古い", "欠けた", "ただの", "練習用", "重い"],
+                2: ["鉄の", "銅の", "鋭い", "兵士の", "硬い", "軽い"],
+                3: ["鋼の", "銀の", "名工の", "炎の", "氷の", "雷の", "守りの", "力の"],
+                4: ["ミスリル", "オリハルコン", "光の", "闇の", "古代の", "勇者の", "魔王の", "ドラゴンの"],
+                5: ["伝説の", "神々の", "奇跡の", "終焉の", "創造の", "無限の"]
+            };
+            const bases = {
+                weapon: ["ソード", "アックス", "スピア", "ロッド", "ダガー", "ハンマー", "ボウ", "ブレード"],
+                armor: ["シールド", "アーマー", "ヘルム", "メイル", "ガントレット", "マント", "ローブ", "ベスト"],
+                accessory: ["リング", "アミュレット", "オーブ", "タリスマン", "紋章", "宝石", "ネックレス", "ブレスレット"]
+            };
+
+            const pList = prefixes[rarity];
+            const bList = bases[type];
+            const prefix = pList[Math.floor(rng() * pList.length)];
+            const base = bList[Math.floor(rng() * bList.length)];
+            const name = prefix + base;
+
+            const rMod = [1.0, 1.0, 1.5, 2.5, 4.0, 8.0][rarity];
+            
+            let st = 0, df = 0, hp = 0;
+            const baseVal = 200 + Math.floor(rng() * 300); 
+
+            if (type === "weapon") {
+                st = Math.floor(baseVal * 1.5 * rMod);
+                df = Math.floor(baseVal * 0.2 * rMod);
+            } else if (type === "armor") {
+                st = Math.floor(baseVal * 0.1 * rMod);
+                df = Math.floor(baseVal * 1.5 * rMod);
+                hp = Math.floor(baseVal * 5 * rMod / 100) * 100;
+            } else { 
+                st = Math.floor(baseVal * 0.5 * rMod);
+                df = Math.floor(baseVal * 0.5 * rMod);
+                hp = Math.floor(baseVal * 10 * rMod / 100) * 100;
+            }
+
+            return { name, type, rarity, st, df, hp };
+        }
+
         // ==========================================
-        //  スキャナー & UI ロジック
+        //  App Logic
         // ==========================================
-        const html5QrCode = new Html5Qrcode("reader");
+        let turn = 1; // 1 or 2
+        let p1Data = null;
+        let p2Data = null;
+
+        function getCurrentPlayer() { return turn === 1 ? p1Data : p2Data; }
+        function setCurrentPlayer(data) { if (turn === 1) p1Data = data; else p2Data = data; }
+
+        let pendingItem = null;
         let isScanning = false;
-        
-        // UI要素
-        const startScreen = document.getElementById('start-screen');
-        const svgOverlay = document.getElementById('svg-overlay');
-        const maskPath = document.getElementById('mask-path');
-        const guidePath = document.getElementById('guide-path');
-        const resultModal = document.getElementById('result-modal');
-        const resFormat = document.getElementById('res-format');
-        const resText = document.getElementById('res-text');
-        const btnSearch = document.getElementById('btn-search');
+        const html5QrCode = new Html5Qrcode("reader");
 
-        // ステータス表示用要素
-        const dispJob = document.getElementById('disp-job');
-        const dispTribe = document.getElementById('disp-tribe');
-        const dispHp = document.getElementById('disp-hp');
-        const dispSt = document.getElementById('disp-st');
-        const dispDf = document.getElementById('disp-df');
+        // UI References
+        const ui = {
+            start: document.getElementById('start-screen'),
+            turnScreen: document.getElementById('turn-screen'),
+            turnPlayerText: document.getElementById('turn-player-text'),
+            vsScreen: document.getElementById('vs-screen'),
+            overlay: document.getElementById('svg-overlay'),
+            mask: document.getElementById('mask-path'),
+            guide: document.getElementById('guide-path'),
+            
+            turnBadge: document.getElementById('turn-badge'),
+            pStatus: document.getElementById('player-status'),
+            pJob: document.getElementById('p-job'),
+            pName: document.getElementById('p-name'),
+            hint: document.getElementById('scan-hint-text'),
+            toast: document.getElementById('toast'),
+            
+            // Steps
+            dot1: document.getElementById('dot-1'),
+            dot2: document.getElementById('dot-2'),
+            dot3: document.getElementById('dot-3'),
+            line1: document.getElementById('line-1'),
+            line2: document.getElementById('line-2'),
 
-        function updateOverlay() {
+            // Modals
+            charModal: document.getElementById('char-modal'),
+            cmName: document.getElementById('cm-name'),
+            cmJob: document.getElementById('cm-job'),
+            cmHp: document.getElementById('cm-hp'),
+            cmSt: document.getElementById('cm-st'),
+            cmDf: document.getElementById('cm-df'),
+            
+            s1Name: document.getElementById('slot-1-name'),
+            s1Stats: document.getElementById('slot-1-stats'),
+            s2Name: document.getElementById('slot-2-name'),
+            s2Stats: document.getElementById('slot-2-stats'),
+
+            itemModal: document.getElementById('item-modal'),
+            itemCard: document.getElementById('new-item-card'),
+            itemStars: document.getElementById('item-stars'),
+            itemType: document.getElementById('item-type'),
+            itemName: document.getElementById('item-name'),
+            itemSt: document.getElementById('item-st'),
+            itemDf: document.getElementById('item-df'),
+            itemHp: document.getElementById('item-hp'),
+
+            // VS Screen elements
+            vsP1Name: document.getElementById('vs-p1-name'),
+            vsP1Job: document.getElementById('vs-p1-job'),
+            vsP1Hp: document.getElementById('vs-p1-hp'),
+            vsP1St: document.getElementById('vs-p1-st'),
+            vsP1Df: document.getElementById('vs-p1-df'),
+            vsP1Equip: document.getElementById('vs-p1-equip'),
+
+            vsP2Name: document.getElementById('vs-p2-name'),
+            vsP2Job: document.getElementById('vs-p2-job'),
+            vsP2Hp: document.getElementById('vs-p2-hp'),
+            vsP2St: document.getElementById('vs-p2-st'),
+            vsP2Df: document.getElementById('vs-p2-df'),
+            vsP2Equip: document.getElementById('vs-p2-equip'),
+        };
+
+        function initApp() {
+            ui.start.style.display = 'none';
+            // Start P1 Turn Screen directly
+            turn = 1;
+            showTurnScreen();
+        }
+
+        // 共通ターン開始画面表示
+        function showTurnScreen() {
+            ui.turnPlayerText.innerText = `PLAYER ${turn}`;
+            ui.turnPlayerText.className = `turn-player p${turn}-text`;
+            ui.turnScreen.classList.add('visible');
+            
+            // UIリセット
+            ui.overlay.classList.remove('active');
+            ui.overlay.classList.remove('char-mode');
+            ui.overlay.classList.remove('complete');
+            ui.charModal.classList.remove('visible');
+            ui.itemModal.classList.remove('visible');
+        }
+
+        function startTurnAction() {
+            ui.turnScreen.classList.remove('visible');
+            updateTurnUI();
+            updateStepUI();
+            updatePlayerUI();
+            startCamera();
+        }
+
+        function startCamera() {
             const w = window.innerWidth;
             const h = window.innerHeight;
+            const boxW = Math.min(800, w * 0.85);
+            const boxH = Math.min(boxW, h * 0.6);
             
-            // 【改善点】スキャンエリアを大幅に拡大 (横幅90%確保)
-            // 以前は70%かつ0.5倍の高さで狭かった
-            const boxW = Math.min(800, w * 0.90);
-            // 高さを十分に取ることで、カメラに入るほとんどの範囲をカバー
-            const boxH = Math.min(boxW * 1.0, h * 0.65); 
-            
-            const x = (w - boxW) / 2;
-            const y = (h - boxH) / 2;
-            const r = 24;
-            const lineLen = 40; // ガイド線も少し長く
-
-            const dMask = `
-                M 0 0 H ${w} V ${h} H 0 Z
-                M ${x+r} ${y} 
-                H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} 
-                V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} 
-                H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} 
-                V ${y+r} Q ${x} ${y} ${x+r} ${y} Z
-            `;
-            maskPath.setAttribute('d', dMask);
-
-            const dGuide = `
-                M ${x} ${y+lineLen} V ${y+r} Q ${x} ${y} ${x+r} ${y} H ${x+lineLen}
-                M ${x+boxW-lineLen} ${y} H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} V ${y+lineLen}
-                M ${x+boxW} ${y+boxH-lineLen} V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} H ${x+boxW-lineLen}
-                M ${x+lineLen} ${y+boxH} H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} V ${y+boxH-lineLen}
-            `;
-            guidePath.setAttribute('d', dGuide);
-
-            return { width: Math.floor(boxW), height: Math.floor(boxH) };
+            html5QrCode.start({ facingMode: "environment" }, 
+                { fps: 20, qrbox: { width: Math.floor(boxW), height: Math.floor(boxH) } }, 
+                onScan)
+            .then(() => { 
+                isScanning = true; 
+                resizeOverlay(); 
+            })
+            .catch(err => alert("Camera Error: " + err));
         }
 
-        window.addEventListener('resize', updateOverlay);
+        function onScan(text, result) {
+            if (!isScanning) return;
+            const format = result.result.format.formatName;
+            
+            const currentPlayer = getCurrentPlayer();
+
+            if (format.includes("QR_CODE")) {
+                if (!currentPlayer) {
+                    showToast("⚠ 先にバーコードでキャラを作ってください");
+                    return; 
+                }
+                foundItem(text);
+            } else {
+                foundChar(text);
+            }
+        }
+
+        function foundChar(code) {
+            isScanning = false;
+            playSound('scan');
+            if(navigator.vibrate) navigator.vibrate(50);
+
+            const newChar = generateChar(code);
+            setCurrentPlayer(newChar);
+            
+            updatePlayerUI();
+            showToast("キャラクター生成完了");
+            
+            ui.overlay.classList.add('char-mode');
+            setTimeout(() => {
+                ui.overlay.classList.remove('char-mode');
+                showCharModal();
+            }, 500);
+            
+            updateStepUI();
+        }
+
+        function foundItem(code) {
+            const player = getCurrentPlayer();
+            if (player.items.length >= 2) return;
+
+            isScanning = false;
+            playSound('found');
+            if(navigator.vibrate) navigator.vibrate([50,50]);
+            
+            ui.overlay.classList.add('active'); 
+            
+            pendingItem = generateItem(code);
+            
+            ui.itemCard.dataset.rarity = pendingItem.rarity;
+            ui.itemStars.innerText = "★".repeat(pendingItem.rarity);
+            ui.itemType.innerText = pendingItem.type;
+            ui.itemName.innerText = pendingItem.name;
+            ui.itemSt.innerText = "+" + pendingItem.st;
+            ui.itemDf.innerText = "+" + pendingItem.df;
+            ui.itemHp.innerText = "+" + pendingItem.hp;
+            
+            ui.itemModal.classList.add('visible');
+        }
+
+        function equipItem() {
+            const player = getCurrentPlayer();
+            if(!player || !pendingItem) return;
+            playSound('equip');
+            
+            player.items.push(pendingItem);
+            recalcStats(player);
+            updatePlayerUI();
+            showToast(`${pendingItem.name} を装備しました`);
+            
+            updateStepUI(); 
+
+            if (player.items.length >= 2) {
+                ui.itemModal.classList.remove('visible');
+                ui.overlay.classList.remove('active');
+                
+                // カメラ停止
+                html5QrCode.stop().then(() => {
+                    if (turn === 1) {
+                        turn = 2;
+                        setTimeout(showTurnScreen, 500);
+                    } else {
+                        setTimeout(showVsScreen, 500);
+                    }
+                });
+            } else {
+                discardItem();
+            }
+        }
+
+        function showVsScreen() {
+            renderVsScreen();
+            ui.vsScreen.classList.add('visible');
+            playSound('found'); 
+        }
+
+        function renderVsScreen() {
+            // P1
+            ui.vsP1Name.innerText = "CODE: " + p1Data.id.substring(0, 6);
+            ui.vsP1Job.innerText = `${p1Data.tribe} / ${p1Data.job}`;
+            ui.vsP1Hp.innerText = p1Data.hp;
+            ui.vsP1St.innerText = p1Data.st;
+            ui.vsP1Df.innerText = p1Data.df;
+            ui.vsP1Equip.innerHTML = p1Data.items.map(i => 
+                `<div class="pc-equip-item"><span style="color:${getRarityColor(i.rarity)}">${i.name}</span><span>★${i.rarity}</span></div>`
+            ).join('');
+
+            // P2
+            ui.vsP2Name.innerText = "CODE: " + p2Data.id.substring(0, 6);
+            ui.vsP2Job.innerText = `${p2Data.tribe} / ${p2Data.job}`;
+            ui.vsP2Hp.innerText = p2Data.hp;
+            ui.vsP2St.innerText = p2Data.st;
+            ui.vsP2Df.innerText = p2Data.df;
+            ui.vsP2Equip.innerHTML = p2Data.items.map(i => 
+                `<div class="pc-equip-item"><span style="color:${getRarityColor(i.rarity)}">${i.name}</span><span>★${i.rarity}</span></div>`
+            ).join('');
+        }
+
+        function resetApp() {
+            turn = 1;
+            p1Data = null;
+            p2Data = null;
+            pendingItem = null;
+            
+            ui.vsScreen.classList.remove('visible');
+            ui.charModal.classList.remove('visible');
+            
+            // P1スタート画面へ戻る
+            showTurnScreen();
+        }
+
+        function updateTurnUI() {
+            ui.turnBadge.innerText = `PLAYER ${turn} TURN`;
+            ui.turnBadge.className = `turn-badge p${turn}`;
+        }
+
+        function updateStepUI() {
+            ui.dot1.className = 'step-dot';
+            ui.dot2.className = 'step-dot';
+            ui.dot3.className = 'step-dot';
+            ui.line1.className = 'step-line';
+            ui.line2.className = 'step-line';
+            
+            const player = getCurrentPlayer();
+
+            if (!player) {
+                ui.dot1.classList.add('active');
+                ui.hint.innerText = `PLAYER ${turn}: まずはバーコード(JAN)をスキャン！`;
+                ui.overlay.classList.remove('active');
+            } else if (player.items.length === 0) {
+                ui.dot1.classList.add('done');
+                ui.line1.classList.add('done');
+                ui.dot2.classList.add('active');
+                ui.hint.innerText = `PLAYER ${turn}: 次はQRコードで1つ目の装備を探せ！`;
+                ui.overlay.classList.add('active');
+            } else if (player.items.length === 1) {
+                ui.dot1.classList.add('done');
+                ui.line1.classList.add('done');
+                ui.dot2.classList.add('done');
+                ui.line2.classList.add('done');
+                ui.dot3.classList.add('active');
+                ui.hint.innerText = `PLAYER ${turn}: 最後のQRコードで最強装備を完成させろ！`;
+                ui.overlay.classList.add('active');
+            }
+        }
+
+        function recalcStats(player) {
+            player.st = player.baseSt;
+            player.df = player.baseDf;
+            player.hp = player.baseHp;
+            
+            player.items.forEach(item => {
+                player.st += item.st;
+                player.df += item.df;
+                player.hp += item.hp;
+            });
+            player.maxHp = player.hp;
+        }
+
+        function discardItem() {
+            ui.itemModal.classList.remove('visible');
+            ui.overlay.classList.remove('active');
+            pendingItem = null;
+            setTimeout(() => { isScanning = true; }, 500);
+        }
+
+        function updatePlayerUI() {
+            const player = getCurrentPlayer();
+            
+            if (!player) {
+                ui.pJob.innerText = "No Data";
+                ui.pName.innerText = "Scan Barcode";
+                ui.cmName.innerText = "--";
+                ui.cmJob.innerText = "--";
+                ui.cmHp.innerText = 0;
+                ui.cmSt.innerText = 0;
+                ui.cmDf.innerText = 0;
+                updateSlotUI(1, null);
+                updateSlotUI(2, null);
+                return;
+            }
+
+            ui.pJob.innerText = player.job;
+            ui.pName.innerText = "CODE: " + player.id.substring(0, 6);
+            
+            ui.cmName.innerText = "CODE: " + player.id;
+            ui.cmJob.innerText = `${player.tribe} / ${player.job}`;
+            ui.cmHp.innerText = player.hp;
+            ui.cmSt.innerText = player.st;
+            ui.cmDf.innerText = player.df;
+            
+            updateSlotUI(1, player.items[0]);
+            updateSlotUI(2, player.items[1]);
+        }
+        
+        function updateSlotUI(slotNum, item) {
+            const nameEl = slotNum === 1 ? ui.s1Name : ui.s2Name;
+            const statEl = slotNum === 1 ? ui.s1Stats : ui.s2Stats;
+            
+            if (item) {
+                nameEl.innerText = item.name;
+                nameEl.className = "slot-item";
+                nameEl.style.color = getRarityColor(item.rarity);
+                statEl.innerText = `★${item.rarity} | ST+${item.st} DF+${item.df}`;
+            } else {
+                nameEl.innerText = "装備なし";
+                nameEl.className = "slot-item slot-empty";
+                nameEl.style.color = "";
+                statEl.innerText = "";
+            }
+        }
+        
+        function getRarityColor(r) {
+            return ["#8e8e93", "#8e8e93", "#32d74b", "#0a84ff", "#bf5af2", "#ffd60a"][r] || "#fff";
+        }
+
+        function showCharModal() {
+            const player = getCurrentPlayer();
+            if(!player) return;
+            isScanning = false;
+            ui.charModal.classList.add('visible');
+        }
+
+        function closeModal() {
+            ui.charModal.classList.remove('visible');
+            setTimeout(() => { isScanning = true; }, 500);
+        }
+
+        function showToast(msg) {
+            ui.toast.innerText = msg;
+            ui.toast.classList.add('show');
+            setTimeout(() => ui.toast.classList.remove('show'), 2000);
+        }
+
+        function resizeOverlay() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const boxW = Math.min(800, w * 0.85);
+            const boxH = Math.min(boxW, h * 0.6); 
+            const x = (w - boxW) / 2;
+            const y = (h - boxH) / 2;
+            const r = 20; const l = 40;
+
+            const dMask = `M 0 0 H ${w} V ${h} H 0 Z M ${x+r} ${y} H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} V ${y+r} Q ${x} ${y} ${x+r} ${y} Z`;
+            ui.mask.setAttribute('d', dMask);
+            ui.guide.setAttribute('d', `M ${x} ${y+l} V ${y+r} Q ${x} ${y} ${x+r} ${y} H ${x+l} M ${x+boxW-l} ${y} H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} V ${y+l} M ${x+boxW} ${y+boxH-l} V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} H ${x+boxW-l} M ${x+l} ${y+boxH} H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} V ${y+boxH-l}`);
+        }
+        window.addEventListener('resize', resizeOverlay);
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function playSuccessSound() {
+        function playSound(type) {
             if (audioCtx.state === 'suspended') audioCtx.resume();
-            
             const t = audioCtx.currentTime;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             
-            osc.type = 'square'; 
-            osc.frequency.setValueAtTime(880, t);
-            osc.frequency.setValueAtTime(1760, t + 0.1);
-            
-            gain.gain.setValueAtTime(0.1, t);
-            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2);
-            
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(t + 0.2);
+            if (type === 'scan') {
+                osc.type = 'square'; 
+                osc.frequency.setValueAtTime(880, t); osc.frequency.exponentialRampToValueAtTime(1760, t+0.1);
+                gain.gain.setValueAtTime(0.1, t); gain.gain.exponentialRampToValueAtTime(0.01, t+0.15);
+            } else if (type === 'found') {
+                osc.type = 'sine'; 
+                osc.frequency.setValueAtTime(1200, t); osc.frequency.linearRampToValueAtTime(1800, t+0.1);
+                gain.gain.setValueAtTime(0.1, t); gain.gain.linearRampToValueAtTime(0, t+0.3);
+            } else if (type === 'equip') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, t); osc.frequency.setValueAtTime(554, t+0.1); osc.frequency.setValueAtTime(659, t+0.2);
+                gain.gain.setValueAtTime(0.1, t); gain.gain.linearRampToValueAtTime(0, t+0.5);
+            }
+            osc.connect(gain); gain.connect(audioCtx.destination); osc.start(); osc.stop(t+1.0);
         }
 
-        function startCamera() {
-            const tapMsg = document.querySelector('.tap-msg');
-            if (tapMsg.innerText === "Starting...") return;
-            tapMsg.innerText = "Starting...";
-            
-            const qrBoxSize = updateOverlay();
-            
-            const config = {
-                // 【改善点】FPSを上げて反応を良くする
-                fps: 25, 
-                // 【改善点】qrboxをUIの見た目と一致させる（広くする）
-                qrbox: qrBoxSize,
-                aspectRatio: window.innerHeight / window.innerWidth,
-                videoConstraints: {
-                    facingMode: "environment",
-                    focusMode: "continuous",
-                    // 【改善点】高解像度を指定して精度アップを狙う
-                    // (ブラウザが対応していれば高画質カメラを使用)
-                    width: { min: 640, ideal: 1920, max: 3840 },
-                    height: { min: 480, ideal: 1080, max: 2160 }
-                },
-                formatsToSupport: [
-                    Html5QrcodeSupportedFormats.QR_CODE,
-                    Html5QrcodeSupportedFormats.EAN_13,
-                    Html5QrcodeSupportedFormats.EAN_8,
-                    Html5QrcodeSupportedFormats.CODE_128,
-                    Html5QrcodeSupportedFormats.CODE_39,
-                    Html5QrcodeSupportedFormats.ITF,
-                    Html5QrcodeSupportedFormats.CODABAR,
-                    Html5QrcodeSupportedFormats.UPC_A,
-                    Html5QrcodeSupportedFormats.UPC_E
-                ]
-            };
-
-            html5QrCode.start(
-                { facingMode: "environment" },
-                config,
-                onScanSuccess
-            ).then(() => {
-                isScanning = true;
-                startScreen.style.display = 'none'; 
-                svgOverlay.classList.add('active');
-            }).catch(err => {
-                console.error(err);
-                alert("カメラ起動エラー: " + err);
-                tapMsg.innerText = "Tap to Retry";
-            });
-        }
-
-        function onScanSuccess(decodedText, decodedResult) {
-            if (!isScanning) return;
-            isScanning = false;
-            
-            playSuccessSound();
-            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
-            
-            html5QrCode.pause(true);
-            svgOverlay.classList.add('success');
-            
-            const stats = getSuperHeavyStats(decodedText);
-            
-            setTimeout(() => {
-                resText.innerText = decodedText;
-                resFormat.innerText = decodedResult.result.format.formatName;
-                
-                dispJob.innerText = stats.job;
-                dispTribe.innerText = `種族: ${stats.tribe}`;
-                dispHp.innerText = stats.hp;
-                dispSt.innerText = stats.st;
-                dispDf.innerText = stats.df;
-
-                if (stats.job === '戦士') {
-                    dispJob.style.color = '#007aff';
-                } else {
-                    dispJob.style.color = '#af52de';
-                }
-
-                if (decodedText.startsWith('http')) {
-                    btnSearch.href = decodedText;
-                    btnSearch.innerText = "Open Link";
-                } else {
-                    btnSearch.href = `https://www.google.com/search?q=${encodeURIComponent(decodedText)}`;
-                    btnSearch.innerText = "Search Item";
-                }
-                
-                resultModal.classList.add('visible');
-            }, 300);
-        }
-
-        function resetScanner() {
-            resultModal.classList.remove('visible');
-            svgOverlay.classList.remove('success');
-            
-            setTimeout(() => {
-                html5QrCode.resume();
-                isScanning = true;
-            }, 300);
-        }
-
-        function copyText() {
-            const statsText = `[SCAN DATA]\nCode: ${resText.innerText}\nClass: ${dispJob.innerText} (${dispTribe.innerText})\nHP: ${dispHp.innerText} / ST: ${dispSt.innerText} / DF: ${dispDf.innerText}`;
-            
-            navigator.clipboard.writeText(statsText).then(() => {
-                const btn = document.querySelector('.btn-secondary');
-                const original = btn.innerText;
-                btn.innerText = "Copied!";
-                setTimeout(() => btn.innerText = original, 1000);
-            });
-        }
-
-        updateOverlay();
     </script>
 </body>
 </html>
