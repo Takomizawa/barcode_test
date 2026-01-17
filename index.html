@@ -462,8 +462,8 @@
         /* ボタン */
         .btn {
             width: 100%;
-            padding: 16px;
-            border-radius: 12px;
+            padding: 18px;
+            border-radius: 16px;
             border: none;
             font-size: 1rem;
             font-weight: 700;
@@ -471,7 +471,9 @@
             background: #333;
             color: #fff;
             margin-top: 10px;
+            transition: transform 0.1s;
         }
+        .btn:active { transform: scale(0.98); }
         .btn-primary { background: var(--primary-color); }
         .btn-equip { background: var(--guide-active); color: #000; }
         .btn-danger { background: #ff3b30; color: #fff; }
@@ -497,7 +499,6 @@
         .battler-card { 
             background: rgba(28, 28, 30, 1); border-radius: 16px; padding: 20px; 
             box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-            transition: transform 0.2s;
         }
         .battler-card.p1 { border-left: 4px solid var(--p1-color); }
         .battler-card.p2 { border-right: 4px solid var(--p2-color); text-align: right; }
@@ -546,7 +547,7 @@
         }
         .cmd-btn {
             background: #2c2c2e; border: none; border-radius: 14px;
-            padding: 16px; color: #666; font-size: 1rem; font-weight: 700;
+            padding: 16px; color: #555; font-size: 1rem; font-weight: 700;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             transition: all 0.2s; cursor: not-allowed;
         }
@@ -570,6 +571,7 @@
             z-index: 200; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
             display: flex; flex-direction: column;
             box-shadow: 0 -10px 40px rgba(0,0,0,0.5);
+            pointer-events: auto;
         }
         #skill-modal.visible { transform: translateY(0); }
         .skill-header { padding: 20px; text-align: center; font-weight: 700; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.1); }
@@ -582,13 +584,17 @@
         .skill-pow { color: var(--st-color); font-size: 0.9rem; }
 
         .shaking { animation: shake 0.4s; }
-        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } 100% { transform: translateX(0); } }
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } 100% { transform: translateX(0); } }
+
+        /* Result Modal */
+        #result-modal { position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 500; display: none; flex-direction: column; justify-content: flex-end; }
+        #result-modal.visible { display: flex; }
 
     </style>
 </head>
 <body>
 
-    <!-- 1. カッコいいスタート画面 -->
+    <!-- 1. スタート画面 -->
     <div id="start-screen" onclick="initApp()">
         <div class="title-logo">BARCODE<br>BATTLER</div>
         <div class="title-sub">SCAN & FIGHT</div>
@@ -617,18 +623,9 @@
                         <div class="pc-job" id="vs-p1-job">--</div>
                     </div>
                     <div class="pc-stats">
-                        <div>
-                            <span class="stat-label">HP</span>
-                            <span class="stat-val val-hp" id="vs-p1-hp">0</span>
-                        </div>
-                        <div>
-                            <span class="stat-label">ST</span>
-                            <span class="stat-val val-st" id="vs-p1-st">0</span>
-                        </div>
-                        <div>
-                            <span class="stat-label">DF</span>
-                            <span class="stat-val val-df" id="vs-p1-df">0</span>
-                        </div>
+                        <div><span class="stat-label">HP</span><span class="stat-val val-hp" id="vs-p1-hp">0</span></div>
+                        <div><span class="stat-label">ST</span><span class="stat-val val-st" id="vs-p1-st">0</span></div>
+                        <div><span class="stat-label">DF</span><span class="stat-val val-df" id="vs-p1-df">0</span></div>
                     </div>
                     <div class="pc-equip-list" id="vs-p1-equip"></div>
                 </div>
@@ -641,18 +638,9 @@
                         <div class="pc-job" id="vs-p2-job">--</div>
                     </div>
                     <div class="pc-stats">
-                        <div>
-                            <span class="stat-label">HP</span>
-                            <span class="stat-val val-hp" id="vs-p2-hp">0</span>
-                        </div>
-                        <div>
-                            <span class="stat-label">ST</span>
-                            <span class="stat-val val-st" id="vs-p2-st">0</span>
-                        </div>
-                        <div>
-                            <span class="stat-label">DF</span>
-                            <span class="stat-val val-df" id="vs-p2-df">0</span>
-                        </div>
+                        <div><span class="stat-label">HP</span><span class="stat-val val-hp" id="vs-p2-hp">0</span></div>
+                        <div><span class="stat-label">ST</span><span class="stat-val val-st" id="vs-p2-st">0</span></div>
+                        <div><span class="stat-label">DF</span><span class="stat-val val-df" id="vs-p2-df">0</span></div>
                     </div>
                     <div class="pc-equip-list" id="vs-p2-equip"></div>
                 </div>
@@ -662,10 +650,7 @@
             </div>
         </div>
 
-        <svg id="svg-overlay" width="100%" height="100%">
-            <path id="mask-path" class="mask-path" d="" />
-            <path id="guide-path" class="guide-corner" d="" />
-        </svg>
+        <svg id="svg-overlay"><path id="mask-path" class="mask-path" d=""/><path id="guide-path" class="guide-corner" d=""/></svg>
         
         <div id="ui-layer">
             <div class="player-turn-bar">
@@ -742,22 +727,21 @@
     <!-- 2. アイテム発見モーダル -->
     <div id="item-modal" class="modal">
         <div class="modal-handle"></div>
-        <div style="text-align:center; font-weight:bold; color:#ffd60a; margin-bottom:10px;">ITEM DISCOVERED!</div>
-        
-        <div class="item-card" id="new-item-card" data-rarity="1">
-            <div class="rarity-stars" id="item-stars">★</div>
-            <div class="item-type" id="item-type">WEAPON</div>
-            <div class="item-name" id="item-name">錆びた剣</div>
-            
-            <div class="item-diff">
-                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">ST</span> <span id="item-st" class="diff-plus">+0</span></div>
-                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">DF</span> <span id="item-df" class="diff-plus">+0</span></div>
-                <div class="diff-val"><span style="font-size:0.7rem; color:#888;">HP</span> <span id="item-hp" class="diff-plus">+0</span></div>
+        <div class="modal-content" style="background:none; padding:0;">
+            <div style="text-align:center; font-weight:bold; color:#ffd60a; margin-bottom:10px;">ITEM DISCOVERED!</div>
+            <div class="item-card" id="new-item-card" data-rarity="1">
+                <div class="rarity-stars" id="item-stars">★</div>
+                <div class="item-type" id="item-type">WEAPON</div>
+                <div class="item-name" id="item-name">錆びた剣</div>
+                <div class="item-diff">
+                    <div class="diff-val"><span style="font-size:0.7rem; color:#888;">ST</span> <span id="item-st">+0</span></div>
+                    <div class="diff-val"><span style="font-size:0.7rem; color:#888;">DF</span> <span id="item-df">+0</span></div>
+                    <div class="diff-val"><span style="font-size:0.7rem; color:#888;">HP</span> <span id="item-hp">+0</span></div>
+                </div>
             </div>
+            <button class="btn btn-equip" onclick="equipItem()">装備する</button>
+            <button class="btn" style="background:transparent; color:#888; margin-top:0;" onclick="discardItem()">破棄する</button>
         </div>
-
-        <button class="btn btn-equip" onclick="equipItem()">装備する</button>
-        <button class="btn" style="background:transparent; color:#888; margin-top:0;" onclick="discardItem()">破棄する</button>
     </div>
 
     <!-- 3. バトル画面 (Modern UI) -->
@@ -814,7 +798,7 @@
         </div>
     </div>
 
-    <!-- Skill List Modal -->
+    <!-- 4. スキル選択モーダル -->
     <div id="skill-modal">
         <div class="skill-header">技を選択</div>
         <div class="skill-list" id="skill-list-container">
@@ -822,6 +806,21 @@
         </div>
         <div style="padding:20px;">
             <button class="btn" style="background:#333;" onclick="closeSkillMenu()">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- 5. 勝利リザルトモーダル -->
+    <div id="result-modal" class="modal">
+        <div class="modal-handle"></div>
+        <div class="char-card" style="text-align:center;">
+            <div class="char-title" style="color:var(--guide-active); font-size:1rem;">BATTLE RESULT</div>
+            <div id="winner-text" style="font-size:2.5rem; font-weight:900; margin:10px 0;">WINNER!</div>
+            <div id="winner-pname" style="font-size:1.5rem; font-weight:800; margin-bottom:30px;">PLAYER 1</div>
+            
+            <div style="font-size:0.8rem; color:#8e8e93; margin-bottom:10px;">REMAINING HP</div>
+            <div id="winner-hp-val" style="font-size:2rem; font-weight:900; font-family:monospace; color:var(--hp-color);">0</div>
+            
+            <button class="btn btn-danger" style="margin-top:40px;" onclick="location.reload()">REMATCH (RESET)</button>
         </div>
     </div>
 
@@ -858,15 +857,16 @@
             
             const isWarrior = r() > 0.35;
             const job = isWarrior ? "WARRIOR" : "WIZARD";
-            const tribe = ["MECHA", "ANIMAL", "OCEAN", "BIRD", "HUMAN"][Math.floor(r()*5)];
+            const tribe = ["MECHA", "BIRD", "ANIMAL", "HUMAN", "OCEAN"][Math.floor(r()*5)];
 
             let hp = 30000 + Math.floor(r()*300)*100;
             let st = 5000 + Math.floor(r()*100)*100;
             let df = 2000 + Math.floor(r()*80)*100;
+            // DX (素早さ) 判定用ステータス
+            let dx = Math.floor(r() * 100);
 
             if(isWarrior) { hp += 5000; st += 1000; } else { df += 1000; }
 
-            // Generate 10 Skills
             const skills = [];
             for(let i=0; i<10; i++){
                 const isMagic = i >= 5;
@@ -877,86 +877,32 @@
 
             return { 
                 id: code, tribe, job, 
-                baseHp: hp, baseSt: st, baseDf: df,
+                baseHp: hp, baseSt: st, baseDf: df, dx,
                 hp, maxHp: hp, st, df, 
-                items: [], skills 
+                items: [], skills, isWarrior 
             };
         }
 
         function generateItem(code) {
             const r = createRNG(getSeed(code));
-            
-            const rRand = r();
-            let rarity = 1; 
-            if (rRand > 0.99) rarity = 5;      
-            else if (rRand > 0.95) rarity = 4; 
-            else if (rRand > 0.85) rarity = 3; 
-            else if (rRand > 0.60) rarity = 2; 
-            
-            const typeRand = r();
-            let type = "accessory";
-            if (typeRand < 0.4) type = "weapon";
-            else if (typeRand < 0.8) type = "armor";
-
-            const prefixes = {
-                1: ["錆びた", "古い", "欠けた", "ただの", "練習用", "重い"],
-                2: ["鉄の", "銅の", "鋭い", "兵士の", "硬い", "軽い"],
-                3: ["鋼の", "銀の", "名工の", "炎の", "氷の", "雷の", "守りの", "力の"],
-                4: ["ミスリル", "オリハルコン", "光の", "闇の", "古代の", "勇者の", "魔王の", "ドラゴンの"],
-                5: ["伝説の", "神々の", "奇跡の", "終焉の", "創造の", "無限の"]
-            };
-            const bases = {
-                weapon: ["ソード", "アックス", "スピア", "ロッド", "ダガー", "ハンマー", "ボウ", "ブレード"],
-                armor: ["シールド", "アーマー", "ヘルム", "メイル", "ガントレット", "マント", "ローブ", "ベスト"],
-                accessory: ["リング", "アミュレット", "オーブ", "タリスマン", "紋章", "宝石", "ネックレス", "ブレスレット"]
-            };
-
-            const pList = prefixes[rarity];
-            const bList = bases[type];
-            const prefix = pList[Math.floor(r() * pList.length)];
-            const base = bList[Math.floor(r() * bList.length)];
-            const name = prefix + base;
-
-            const rMod = [1.0, 1.0, 1.5, 2.5, 4.0, 8.0][rarity];
-            
-            let st = 0, df = 0, hp = 0;
-            const baseVal = 500 + Math.floor(r() * 500); 
-
-            if (type === "weapon") {
-                st = Math.floor(baseVal * 1.5 * rMod);
-                df = Math.floor(baseVal * 0.2 * rMod);
-            } else if (type === "armor") {
-                st = Math.floor(baseVal * 0.1 * rMod);
-                df = Math.floor(baseVal * 1.5 * rMod);
-                hp = Math.floor(baseVal * 5 * rMod / 100) * 100;
-            } else { 
-                st = Math.floor(baseVal * 0.5 * rMod);
-                df = Math.floor(baseVal * 0.5 * rMod);
-                hp = Math.floor(baseVal * 10 * rMod / 100) * 100;
-            }
-
-            return { name, type, rarity, st, df, hp };
+            const roll = r();
+            let type = roll < 0.4 ? "weapon" : (roll < 0.8 ? "armor" : "accessory");
+            let rarity = roll < 0.6 ? 1 : (roll < 0.85 ? 2 : (roll < 0.95 ? 3 : (roll < 0.99 ? 4 : 5)));
+            const pList = ["錆びた", "鉄の", "名工の", "魔光の", "神々の"];
+            const bList = { weapon: ["剣", "斧", "槍"], armor: ["盾", "鎧", "兜"], accessory: ["指輪", "お守り", "勲章"] };
+            const name = pList[rarity-1] + bList[type][Math.floor(r()*3)];
+            let s=0, d=0, h=0;
+            if(type==="weapon") s = Math.floor(500 + r()*500) * rarity;
+            else if(type==="armor") d = Math.floor(500 + r()*500) * rarity;
+            else h = Math.floor(1000 + r()*1000) * rarity;
+            return { name, type, rarity, st:s, df:d, hp:h };
         }
 
-        // ==========================================
-        //  App Logic
-        // ==========================================
-        let turn = 1; // 1 or 2
-        let p1Data = null;
-        let p2Data = null;
-
-        function getCurrentPlayer() { return turn === 1 ? p1Data : p2Data; }
-        function setCurrentPlayer(data) { if (turn === 1) p1Data = data; else p2Data = data; }
-
-        let pendingItem = null;
-        let isScanning = false;
+        // --- APP STATE ---
+        let turn = 1, p1Data = null, p2Data = null, isScanning = false, pending = null;
+        let bTurn = 1, bActive = false;
         const html5QrCode = new Html5Qrcode("reader");
 
-        // Battle Vars
-        let bTurn = 1;
-        let bActive = false;
-
-        // UI References
         const ui = {
             start: document.getElementById('start-screen'),
             turnScreen: document.getElementById('turn-screen'),
@@ -965,408 +911,193 @@
             overlay: document.getElementById('svg-overlay'),
             mask: document.getElementById('mask-path'),
             guide: document.getElementById('guide-path'),
-            
             turnBadge: document.getElementById('turn-badge'),
             pStatus: document.getElementById('player-status'),
             pJob: document.getElementById('p-job'),
             pName: document.getElementById('p-name'),
             hint: document.getElementById('scan-hint-text'),
             toast: document.getElementById('toast'),
-            
-            // Steps
-            dot1: document.getElementById('dot-1'),
-            dot2: document.getElementById('dot-2'),
-            dot3: document.getElementById('dot-3'),
-            line1: document.getElementById('line-1'),
-            line2: document.getElementById('line-2'),
-
-            // Modals
-            charModal: document.getElementById('char-modal'),
-            cmName: document.getElementById('cm-name'),
-            cmJob: document.getElementById('cm-job'),
-            cmHp: document.getElementById('cm-hp'),
-            cmSt: document.getElementById('cm-st'),
-            cmDf: document.getElementById('cm-df'),
-            
-            s1Name: document.getElementById('slot-1-name'),
-            s1Stats: document.getElementById('slot-1-stats'),
-            s2Name: document.getElementById('slot-2-name'),
-            s2Stats: document.getElementById('slot-2-stats'),
-
-            itemModal: document.getElementById('item-modal'),
-            itemCard: document.getElementById('new-item-card'),
-            itemStars: document.getElementById('item-stars'),
-            itemType: document.getElementById('item-type'),
-            itemName: document.getElementById('item-name'),
-            itemSt: document.getElementById('item-st'),
-            itemDf: document.getElementById('item-df'),
-            itemHp: document.getElementById('item-hp'),
-
-            // VS Screen elements
-            vsP1Name: document.getElementById('vs-p1-name'),
-            vsP1Job: document.getElementById('vs-p1-job'),
-            vsP1Hp: document.getElementById('vs-p1-hp'),
-            vsP1St: document.getElementById('vs-p1-st'),
-            vsP1Df: document.getElementById('vs-p1-df'),
-            vsP1Equip: document.getElementById('vs-p1-equip'),
-
-            vsP2Name: document.getElementById('vs-p2-name'),
-            vsP2Job: document.getElementById('vs-p2-job'),
-            vsP2Hp: document.getElementById('vs-p2-hp'),
-            vsP2St: document.getElementById('vs-p2-st'),
-            vsP2Df: document.getElementById('vs-p2-df'),
-            vsP2Equip: document.getElementById('vs-p2-equip'),
-
-            // Battle UI
-            battleScreen: document.getElementById('battle-screen'),
-            bP1Name: document.getElementById('b-p1-name'), bP1Bar: document.getElementById('b-p1-fill'), bP1Hp: document.getElementById('b-p1-hp'), bP1Job: document.getElementById('b-p1-job'),
-            bP2Name: document.getElementById('b-p2-name'), bP2Bar: document.getElementById('b-p2-fill'), bP2Hp: document.getElementById('b-p2-hp'), bP2Job: document.getElementById('b-p2-job'),
+            dot1: document.getElementById('dot-1'), dot2: document.getElementById('dot-2'), dot3: document.getElementById('dot-3'),
+            charModal: document.getElementById('char-modal'), cmName: document.getElementById('cm-name'), cmJob: document.getElementById('cm-job'),
+            cmHp: document.getElementById('cm-hp'), cmSt: document.getElementById('cm-st'), cmDf: document.getElementById('cm-df'),
+            itemModal: document.getElementById('item-modal'), itemCard: document.getElementById('new-item-card'),
+            battleScreen: document.getElementById('battle-screen'), bP1Hp: document.getElementById('b-p1-hp'), bP2Hp: document.getElementById('b-p2-hp'),
+            bP1Bar: document.getElementById('b-p1-fill'), bP2Bar: document.getElementById('b-p2-fill'), bP1Job: document.getElementById('b-p1-job'), bP2Job: document.getElementById('b-p2-job'),
             logMsg: document.getElementById('battle-log'), dmgPopup: document.getElementById('dmg-popup'),
-            
             btns: {
                 p1b: document.getElementById('cmd-p1-battle'), p1p: document.getElementById('cmd-p1-power'),
                 p2b: document.getElementById('cmd-p2-battle'), p2p: document.getElementById('cmd-p2-power')
             },
-            
             skillModal: document.getElementById('skill-modal'),
-            skillList: document.getElementById('skill-list-container')
+            skillList: document.getElementById('skill-list-container'),
+            resultModal: document.getElementById('result-modal')
         };
 
-        function initApp() {
-            ui.start.style.display = 'none';
-            // Start P1 Turn Screen directly
-            turn = 1;
-            showTurnScreen();
-        }
-
-        // 共通ターン開始画面表示
+        function initApp() { ui.start.style.display = 'none'; turn = 1; showTurnScreen(); }
         function showTurnScreen() {
             ui.turnPlayerText.innerText = `PLAYER ${turn}`;
             ui.turnPlayerText.className = `turn-player p${turn}-text`;
             ui.turnScreen.classList.add('visible');
-            
-            // UIリセット
-            ui.overlay.classList.remove('active');
-            ui.overlay.classList.remove('char-mode');
-            ui.overlay.classList.remove('complete');
-            ui.charModal.classList.remove('visible');
-            ui.itemModal.classList.remove('visible');
+            ui.overlay.classList.remove('active', 'char-mode', 'complete');
         }
-
         function startTurnAction() {
             ui.turnScreen.classList.remove('visible');
             const w = window.innerWidth;
             html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: { width: Math.floor(w*0.85), height: Math.floor(w*0.5) } }, onScan)
             .then(() => { isScanning = true; resizeOverlay(); updatePrepUI(); });
         }
-
         function onScan(text, result) {
             if (!isScanning) return;
             const isQR = result.result.format.formatName.includes("QR");
-            const player = getCurrentPlayer();
-
-            if (!player) {
-                if (isQR) {
-                    showToast("⚠ 先にバーコードでキャラを作ってください");
-                    return; 
-                }
-                foundChar(text);
-            } else {
-                if (!isQR) {
-                    showToast("アイテムはQRコードをスキャンしてください");
-                    return; 
-                }
-                foundItem(text);
-            }
+            const player = turn === 1 ? p1Data : p2Data;
+            if (!player) { if (isQR) { showToast("⚠ JANバーコードを読み込んでください"); return; } foundChar(text); }
+            else { if (!isQR) { showToast("⚠ QRコードを読み込んでください"); return; } foundItem(text); }
         }
-
         function foundChar(c) {
-            isScanning = false;
-            const data = generateChar(c);
-            pending = { type: 'char', data: data };
-            
-            ui.cmName.innerText = "CODE: " + c.substring(0,8);
-            ui.cmJob.innerText = data.tribe + " / " + data.job;
-            ui.cmHp.innerText = data.hp;
-            ui.cmSt.innerText = data.st;
-            ui.cmDf.innerText = data.df;
-            
-            document.getElementById('slot-1-name').innerText = "なし";
-            document.getElementById('slot-2-name').innerText = "なし";
-            
+            isScanning = false; const data = generateChar(c); pending = { type: 'char', data: data };
+            ui.cmName.innerText = "CODE: " + c.substring(0,8); ui.cmJob.innerText = data.tribe + " / " + data.job;
+            ui.cmHp.innerText = data.hp; ui.cmSt.innerText = data.st; ui.cmDf.innerText = data.df;
+            document.getElementById('slot-1-name').innerText = "なし"; document.getElementById('slot-2-name').innerText = "なし";
             ui.charModal.classList.add('visible');
         }
-
         function foundItem(c) {
-            isScanning = false;
-            const data = generateItem(c);
-            pending = { type: 'item', data: data };
-            
-            ui.itemCard.dataset.rarity = data.rarity;
-            document.getElementById('item-stars').innerText = "★".repeat(data.rarity);
-            document.getElementById('item-type').innerText = data.type.toUpperCase();
-            document.getElementById('item-name').innerText = data.name;
-            document.getElementById('item-st').innerText = "+" + data.st;
-            document.getElementById('item-df').innerText = "+" + data.df;
-            document.getElementById('item-hp').innerText = "+" + data.hp;
-            
+            isScanning = false; const data = generateItem(c); pending = { type: 'item', data: data };
+            ui.itemCard.dataset.rarity = data.rarity; document.getElementById('item-stars').innerText = "★".repeat(data.rarity);
+            document.getElementById('item-type').innerText = data.type.toUpperCase(); document.getElementById('item-name').innerText = data.name;
+            document.getElementById('item-st').innerText = "+"+data.st; document.getElementById('item-df').innerText = "+"+data.df; document.getElementById('item-hp').innerText = "+"+data.hp;
             ui.itemModal.classList.add('visible');
         }
-
         function equipItem() {
-            const player = getCurrentPlayer();
-            if(!player || !pending || !pending.data) return;
-            
-            player.items.push(pending.data);
-            recalcStats(player);
-            updatePlayerUI();
-            
+            const player = turn === 1 ? p1Data : p2Data; if(!player || !pending || !pending.data) return;
+            player.items.push(pending.data); recalcStats(player); updatePlayerUI();
             if (player.items.length >= 2) {
-                html5QrCode.stop().then(() => {
-                    if (turn === 1) {
-                        turn = 2;
-                        setTimeout(showTurnScreen, 500);
-                    } else {
-                        setTimeout(showVsScreen, 500);
-                    }
-                });
+                html5QrCode.stop().then(() => { if (turn === 1) { turn = 2; setTimeout(showTurnScreen, 500); } else showVsScreen(); });
                 ui.itemModal.classList.remove('visible');
-            } else {
-                discardItem();
-            }
+            } else { discardItem(); }
         }
-
         function closeModal() {
             ui.charModal.classList.remove('visible');
-            if(pending && pending.type === 'char') {
-                if(turn === 1) p1Data = pending.data;
-                else p2Data = pending.data;
-            }
-            isScanning = true;
-            updatePrepUI();
-            updatePlayerUI();
+            if(pending && pending.type === 'char') { if(turn === 1) p1Data = pending.data; else p2Data = pending.data; }
+            isScanning = true; updatePrepUI(); updatePlayerUI();
         }
-
-        function discardItem() {
-            ui.itemModal.classList.remove('visible');
-            pending = null;
-            isScanning = true;
-            updatePrepUI();
-        }
-
-        function recalcStats(p) {
-            p.hp = p.baseHp; p.st = p.baseSt; p.df = p.baseDf;
-            p.items.forEach(i => { p.hp += i.hp; p.st += i.st; p.df += i.df; });
-            p.maxHp = p.hp;
-        }
-
-        function updatePlayerUI() {
-            const p = getCurrentPlayer();
-            if (!p) return;
-            ui.pJob.innerText = p.job;
-            ui.pName.innerText = "CODE: " + p.id.substring(0, 6);
-        }
-
+        function discardItem() { ui.itemModal.classList.remove('visible'); pending = null; isScanning = true; updatePrepUI(); }
+        function recalcStats(p) { p.hp = p.baseHp; p.st = p.baseSt; p.df = p.baseDf; p.items.forEach(i => { p.hp += i.hp; p.st += i.st; p.df += i.df; }); p.maxHp = p.hp; }
+        function updatePlayerUI() { const p = turn === 1 ? p1Data : p2Data; if (!p) return; ui.pJob.innerText = p.job; ui.pName.innerText = "CODE: " + p.id.substring(0, 6); }
         function showCharModal() {
-            const player = getCurrentPlayer();
-            if(!player) return;
-            
-            ui.cmName.innerText = "CODE: " + player.id.substring(0,8);
-            ui.cmJob.innerText = player.tribe + " / " + player.job;
-            ui.cmHp.innerText = player.hp;
-            ui.cmSt.innerText = player.st;
-            ui.cmDf.innerText = player.df;
-            
+            const player = turn === 1 ? p1Data : p2Data; if(!player) return;
+            ui.cmName.innerText = "CODE: " + player.id.substring(0,8); ui.cmJob.innerText = player.tribe + " / " + player.job;
+            ui.cmHp.innerText = player.hp; ui.cmSt.innerText = player.st; ui.cmDf.innerText = player.df;
             document.getElementById('slot-1-name').innerText = player.items[0] ? player.items[0].name : "なし";
             document.getElementById('slot-2-name').innerText = player.items[1] ? player.items[1].name : "なし";
-            
-            isScanning = false;
-            ui.charModal.classList.add('visible');
+            isScanning = false; ui.charModal.classList.add('visible');
         }
-
         function showVsScreen() {
             document.getElementById('vs-p1-name').innerText = "CODE: " + p1Data.id.substring(0,6);
-            document.getElementById('vs-p1-job').innerText = p1Data.job;
-            document.getElementById('vs-p1-hp').innerText = p1Data.hp;
-            document.getElementById('vs-p1-st').innerText = p1Data.st;
-            document.getElementById('vs-p1-df').innerText = p1Data.df;
+            document.getElementById('vs-p1-job').innerText = p1Data.tribe + " / " + p1Data.job;
+            document.getElementById('vs-p1-hp').innerText = p1Data.hp; document.getElementById('vs-p1-st').innerText = p1Data.st; document.getElementById('vs-p1-df').innerText = p1Data.df;
             document.getElementById('vs-p1-equip').innerHTML = p1Data.items.map(i => `<div class="pc-equip-item"><span>${i.name}</span><span>★${i.rarity}</span></div>`).join('');
-
             document.getElementById('vs-p2-name').innerText = "CODE: " + p2Data.id.substring(0,6);
-            document.getElementById('vs-p2-job').innerText = p2Data.job;
-            document.getElementById('vs-p2-hp').innerText = p2Data.hp;
-            document.getElementById('vs-p2-st').innerText = p2Data.st;
-            document.getElementById('vs-p2-df').innerText = p2Data.df;
+            document.getElementById('vs-p2-job').innerText = p2Data.tribe + " / " + p2Data.job;
+            document.getElementById('vs-p2-hp').innerText = p2Data.hp; document.getElementById('vs-p2-st').innerText = p2Data.st; document.getElementById('vs-p2-df').innerText = p2Data.df;
             document.getElementById('vs-p2-equip').innerHTML = p2Data.items.map(i => `<div class="pc-equip-item"><span>${i.name}</span><span>★${i.rarity}</span></div>`).join('');
-            
             ui.vsScreen.classList.add('visible');
         }
 
         function startCombatMode() {
-            ui.vsScreen.classList.remove('visible');
-            ui.battleScreen.classList.add('visible');
+            ui.vsScreen.classList.remove('visible'); ui.battleScreen.classList.add('visible');
+            p1Data.curHp = p1Data.hp; p2Data.curHp = p2Data.hp;
             
-            p1Data.curHp = p1Data.hp;
-            p2Data.curHp = p2Data.hp;
+            // --- 先攻後攻判定 ---
+            if (p1Data.dx > p2Data.dx) bTurn = 1;
+            else if (p2Data.dx > p1Data.dx) bTurn = 2;
+            else bTurn = Math.random() < 0.5 ? 1 : 2;
             
-            bTurn = Math.random() < 0.5 ? 1 : 2;
-            
-            updateBattleUI();
-            log(`BATTLE START! P${bTurn} FIRST`);
-            updateCmd();
+            updateBattleUI(); log(`BATTLE START! 先攻: P${bTurn}`); updateCommandUI();
         }
 
-        // --- COMBAT CORE ---
         function updateBattleUI() {
-            ui.bP1Hp.innerText = Math.floor(p1Data.curHp);
-            ui.bP2Hp.innerText = Math.floor(p2Data.curHp);
+            ui.bP1Hp.innerText = Math.floor(p1Data.curHp); ui.bP2Hp.innerText = Math.floor(p2Data.curHp);
             ui.bP1Bar.style.width = (p1Data.curHp / p1Data.maxHp * 100) + "%";
             ui.bP2Bar.style.width = (p2Data.curHp / p2Data.maxHp * 100) + "%";
+            ui.bP1Job.innerText = p1Data.tribe + " " + p1Data.job;
+            ui.bP2Job.innerText = p2Data.tribe + " " + p2Data.job;
         }
 
-        function updateCmd() {
-            // Reset ALL buttons
-            Object.values(ui.btns).forEach(b => b.className = "cmd-btn");
-            
+        function updateCommandUI() {
+            ['cmd-p1-battle','cmd-p1-power','cmd-p2-battle','cmd-p2-power'].forEach(id => document.getElementById(id).className='cmd-btn');
             if (bActive) return;
-
-            if (bTurn === 1) {
-                ui.btns.p1b.classList.add("p1-active");
-                ui.btns.p1p.classList.add("p1-active");
-            } else {
-                ui.btns.p2b.classList.add("p2-active");
-                ui.btns.p2p.classList.add("p2-active");
-            }
+            if (bTurn === 1) { document.getElementById('cmd-p1-battle').classList.add("p1-active"); document.getElementById('cmd-p1-power').classList.add("p1-active"); }
+            else { document.getElementById('cmd-p2-battle').classList.add("p2-active"); document.getElementById('cmd-p2-power').classList.add("p2-active"); }
         }
 
-        function execCmd(p, type) {
-            if ((p === 'p1' && bTurn !== 1) || (p === 'p2' && bTurn !== 2) || bActive) return;
-            openSkillMenu(p, type);
-        }
-
+        function execCmd(p, type) { if ((p === 'p1' && bTurn !== 1) || (p === 'p2' && bTurn !== 2) || bActive) return; openSkillMenu(p, type); }
         function openSkillMenu(p, type) {
             if((p==='p1' && bTurn!==1) || (p==='p2' && bTurn!==2) || bActive) return;
-            
             const data = bTurn === 1 ? p1Data : p2Data;
             ui.skillList.innerHTML = "";
-            
-            // battle = 0-4, power = 5-9
             const targets = type === 'battle' ? data.skills.slice(0, 5) : data.skills.slice(5, 10);
-            
             targets.forEach(s => {
-                const div = document.createElement('div');
-                div.className = 'skill-item';
+                const div = document.createElement('div'); div.className = 'skill-item';
                 div.innerHTML = `<span>${s.name}</span><span class="skill-pow">x${s.mult}</span>`;
-                div.onclick = () => {
-                    closeSkillMenu();
-                    executeAction(s);
-                };
+                div.onclick = () => { closeSkillMenu(); executeAction(s); };
                 ui.skillList.appendChild(div);
             });
             ui.skillModal.classList.add('visible');
         }
-
-        function closeSkillMenu() {
-            ui.skillModal.classList.remove('visible');
-        }
+        function closeSkillMenu() { ui.skillModal.classList.remove('visible'); }
 
         function executeAction(skill) {
-            if(bActive) return;
-            bActive = true;
-            updateCmd(); // Disable all buttons visually
-
-            const atk = bTurn === 1 ? p1Data : p2Data;
-            const def = bTurn === 1 ? p2Data : p1Data;
+            if(bActive) return; bActive = true; updateCommandUI();
+            const atk = bTurn === 1 ? p1Data : p2Data; const def = bTurn === 1 ? p2Data : p1Data;
             const defBox = bTurn === 1 ? document.getElementById('box-p2') : document.getElementById('box-p1');
-            
             log(`${skill.name} !!`);
-            
             setTimeout(() => {
-                // Damage Formula
+                // --- 詳細ダメージ計算 ---
                 let dmg = (atk.st * skill.mult) - (def.df * 0.4);
-                if(dmg < atk.st * 0.1) dmg = atk.st * 0.1; // Min damage
-                
-                // Random 0.9 - 1.1
+                // 種族相性 (Mecha > Bird > Animal > Human > Ocean > Mecha)
+                const advantage = { 'MECHA': 'BIRD', 'BIRD': 'ANIMAL', 'ANIMAL': 'HUMAN', 'HUMAN': 'OCEAN', 'OCEAN': 'MECHA' };
+                if (advantage[atk.tribe] === def.tribe) dmg *= 1.2;
+                // 最低保証
+                if (dmg < atk.st * 0.1) dmg = atk.st * 0.1;
+                // 乱数分散
                 dmg = Math.floor(dmg * (0.9 + Math.random() * 0.2));
-                
-                // Crit
-                if (Math.random() < 0.1) {
-                    dmg = Math.floor(dmg * 1.5);
-                    showDmg("CRIT!", "#ffd60a");
-                } else {
-                    showDmg(dmg);
-                }
+                // クリティカル
+                let isCrit = Math.random() < 0.1;
+                if (isCrit) dmg = Math.floor(dmg * 1.5);
 
-                def.curHp -= dmg;
-                if (def.curHp < 0) def.curHp = 0;
-                
-                defBox.classList.add('shaking');
-                setTimeout(() => defBox.classList.remove('shaking'), 400);
-                
+                def.curHp -= dmg; if (def.curHp < 0) def.curHp = 0;
+                defBox.classList.add('shaking'); setTimeout(() => defBox.classList.remove('shaking'), 400);
+                showDmg(isCrit ? "CRIT!" : dmg, isCrit ? "#ffd60a" : "#ff3b30");
                 updateBattleUI();
 
                 if (def.curHp <= 0) {
                     log(`PLAYER ${bTurn} WIN!!`);
-                    // Victory flow
-                    const winBtn = document.createElement('button');
-                    winBtn.className = "btn btn-danger";
-                    winBtn.innerText = "RESET GAME";
-                    winBtn.style.cssText = "position:absolute; top:60%; left:10%; width:80%; z-index:500;";
-                    winBtn.onclick = () => location.reload();
-                    document.getElementById('battle-screen').appendChild(winBtn);
-                } else {
                     setTimeout(() => {
-                        bTurn = bTurn === 1 ? 2 : 1;
-                        bActive = false;
-                        log(`PLAYER ${bTurn} TURN`);
-                        updateCmd();
-                    }, 1200);
+                        const winnerData = bTurn === 1 ? p1Data : p2Data;
+                        document.getElementById('winner-pname').innerText = `PLAYER ${bTurn}`;
+                        document.getElementById('winner-pname').style.color = bTurn === 1 ? 'var(--p1-color)' : 'var(--p2-color)';
+                        document.getElementById('winner-hp-val').innerText = Math.floor(winnerData.curHp);
+                        ui.resultModal.classList.add('visible');
+                    }, 1500);
+                } else {
+                    setTimeout(() => { bTurn = bTurn === 1 ? 2 : 1; bActive = false; log(`PLAYER ${bTurn} TURN`); updateCommandUI(); }, 1200);
                 }
             }, 600);
         }
 
-        function log(m) {
-            ui.logMsg.innerText = m;
-            ui.logMsg.classList.remove('show');
-            void ui.logMsg.offsetWidth;
-            ui.logMsg.classList.add('show');
-        }
-
-        function showDmg(v, c="#ff3b30") {
-            ui.dmgPopup.innerText = v;
-            ui.dmgPopup.style.color = c;
-            ui.dmgPopup.style.animation = 'none';
-            void ui.dmgPopup.offsetWidth;
-            ui.dmgPopup.style.animation = 'popDamage 0.6s forwards';
-        }
-
-        function showToast(m) {
-            ui.toast.innerText = m;
-            ui.toast.classList.add('show');
-            setTimeout(() => ui.toast.classList.remove('show'), 2000);
-        }
-
-        function updatePrepUI() {
-            const p = getCurrentPlayer();
-            const step = p ? p.items.length + 1 : 0;
-            
-            ui.turnBadge.innerText = `PLAYER ${turn} TURN`;
-            ui.turnBadge.className = `turn-badge p${turn}`;
-            
-            ui.dot1.className = step >= 1 ? 'step-dot done' : (step === 0 ? 'step-dot active' : 'step-dot');
-            ui.dot2.className = step >= 2 ? 'step-dot done' : (step === 1 ? 'step-dot active' : 'step-dot');
-            ui.dot3.className = step >= 3 ? 'step-dot done' : (step === 2 ? 'step-dot active' : 'step-dot');
-            
-            ui.hint.innerText = step === 0 ? "バーコード(JAN)をスキャン！" : "QRコードで装備を探索！";
-        }
-
+        function log(m) { ui.logMsg.innerText = m; ui.logMsg.classList.remove('show'); void ui.logMsg.offsetWidth; ui.logMsg.classList.add('show'); }
+        function showDmg(v, c="#ff3b30") { ui.dmgPopup.innerText = v; ui.dmgPopup.style.color = c; ui.dmgPopup.style.animation = 'none'; void ui.dmgPopup.offsetWidth; ui.dmgPopup.style.animation = 'popDamage 0.6s forwards'; }
+        function showToast(m) { ui.toast.innerText = m; ui.toast.classList.add('show'); setTimeout(() => ui.toast.classList.remove('show'), 2000); }
+        function updatePrepUI() { const p = turn === 1 ? p1Data : p2Data; const step = p ? p.items.length + 1 : 0; ui.turnBadge.innerText = `PLAYER ${turn} TURN`; ui.turnBadge.className = `turn-badge p${turn}`; ui.dot1.className = step >= 1 ? 'step-dot done' : (step === 0 ? 'step-dot active' : 'step-dot'); ui.dot2.className = step >= 2 ? 'step-dot done' : (step === 1 ? 'step-dot active' : 'step-dot'); ui.dot3.className = step >= 3 ? 'step-dot done' : (step === 2 ? 'step-dot active' : 'step-dot'); ui.hint.innerText = step === 0 ? "バーコード(JAN)をスキャン！" : "QRコードで装備を探索！"; }
+        
         function resizeOverlay() {
             const w = window.innerWidth, h = window.innerHeight, bw = Math.min(800, w * 0.85), bh = Math.min(bw, h * 0.6), x = (w - bw) / 2, y = (h - bh) / 2;
-            if (!ui.mask || !ui.guide) return;
-            ui.mask.setAttribute('d', `M 0 0 H ${w} V ${h} H 0 Z M ${x+24} ${y} H ${x+bw-24} Q ${x+bw} ${y} ${x+bw} ${y+24} V ${y+bh-24} Q ${x+bw} ${y+bh} ${x+bw-24} ${y+bh} H ${x+24} Q ${x} ${y+bh} ${x} ${y+bh-24} V ${y+24} Q ${x} ${y} ${x+24} ${y} Z`);
-            ui.guide.setAttribute('d', `M ${x} ${y+40} V ${y+24} Q ${x} ${y} ${x+24} ${y} H ${x+40} M ${x+bw-40} ${y} H ${x+bw-24} Q ${x+bw} ${y} ${x+bw} ${y+24} V ${y+40} M ${x+bw} ${y+bh-40} V ${y+bh-24} Q ${x+bw} ${y+bh} ${x+bw-24} ${y+bh} H ${x+bw-40} M ${x+40} ${y+bh} H ${x+24} Q ${x} ${y+bh} ${x} ${y+bh-24} V ${y+bh-40}`);
+            const mask = document.getElementById('mask-path');
+            const guide = document.getElementById('guide-path');
+            if (!mask || !guide) return;
+            mask.setAttribute('d', `M 0 0 H ${w} V ${h} H 0 Z M ${x+24} ${y} H ${x+bw-24} Q ${x+bw} ${y} ${x+bw} ${y+24} V ${y+bh-24} Q ${x+bw} ${y+bh} ${x+bw-24} ${y+bh} H ${x+24} Q ${x} ${y+bh} ${x} ${y+bh-24} V ${y+24} Q ${x} ${y} ${x+24} ${y} Z`);
+            guide.setAttribute('d', `M ${x} ${y+40} V ${y+24} Q ${x} ${y} ${x+24} ${y} H ${x+40} M ${x+bw-40} ${y} H ${x+bw-24} Q ${x+bw} ${y} ${x+bw} ${y+24} V ${y+40} M ${x+bw} ${y+bh-40} V ${y+bh-24} Q ${x+bw} ${y+bh} ${x+bw-24} ${y+bh} H ${x+bw-40} M ${x+40} ${y+bh} H ${x+24} Q ${x} ${y+bh} ${x} ${y+bh-24} V ${y+bh-40}`);
         }
-        
         window.addEventListener('resize', resizeOverlay);
     </script>
 </body>
