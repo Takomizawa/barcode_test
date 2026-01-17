@@ -8,15 +8,13 @@
     <style>
         :root {
             --primary-color: #007aff;
-            --overlay-dark: rgba(0, 0, 0, 0.6);
-            --guide-color: #ffffff;
-            --guide-active: #34c759;
-            --guide-thickness: 4px;
-            --guide-length: 40px;
+            --mask-color: rgba(0, 0, 0, 0.6); /* 周囲の暗さ */
+            --guide-color: #ffffff; /* 四隅の色 */
+            --guide-active: #34c759; /* 成功時の色 */
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", Roboto, sans-serif;
             background-color: #000;
             color: #fff;
             margin: 0;
@@ -34,10 +32,6 @@
             width: 100%;
             height: 100%;
             background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
         }
 
         #reader {
@@ -51,58 +45,42 @@
             object-fit: cover !important;
             width: 100% !important;
             height: 100% !important;
-            /* 左右反転を削除しました */
         }
 
-        /* --- スキャンガイド (初期状態は非表示) --- */
-        .scan-overlay {
+        /* --- SVGマスク & ガイド (これが新しい枠組み) --- */
+        #svg-overlay {
             position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
             z-index: 10;
             pointer-events: none;
-            display: flex;
-            justify-content: center;
-            align-items: center;
             opacity: 0; /* 最初は隠す */
-            transition: opacity 0.5s ease;
+            transition: opacity 0.3s ease;
         }
 
-        .scan-overlay.active {
-            opacity: 1; /* カメラ起動後に表示 */
+        #svg-overlay.active {
+            opacity: 1;
         }
 
-        /* 読み取りボックス */
-        .scan-box {
-            position: relative;
-            /* 画面サイズに応じた可変サイズ */
-            width: 70vw;
-            max-width: 400px;
-            /* 正方形に近い形から、少し横長に */
-            aspect-ratio: 1 / 0.8;
-            border-radius: 24px;
-            box-shadow: 0 0 0 4000px var(--overlay-dark); 
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        /* マスク（穴あき黒背景） */
+        .mask-path {
+            fill: var(--mask-color);
+            fill-rule: evenodd; /* これで穴を開ける */
         }
 
-        /* 四隅のガイド */
-        .corner {
-            position: absolute;
-            width: var(--guide-length);
-            height: var(--guide-length);
-            border-color: var(--guide-color);
-            border-style: solid;
-            border-width: 0;
-            transition: border-color 0.2s;
-            border-radius: 4px;
+        /* 四隅のガイド線 */
+        .guide-corner {
+            fill: none;
+            stroke: var(--guide-color);
+            stroke-width: 4;
+            stroke-linecap: round;
+            transition: stroke 0.3s;
         }
 
-        .tl { top: 0; left: 0; border-top-width: var(--guide-thickness); border-left-width: var(--guide-thickness); border-top-left-radius: 20px; }
-        .tr { top: 0; right: 0; border-top-width: var(--guide-thickness); border-right-width: var(--guide-thickness); border-top-right-radius: 20px; }
-        .bl { bottom: 0; left: 0; border-bottom-width: var(--guide-thickness); border-left-width: var(--guide-thickness); border-bottom-left-radius: 20px; }
-        .br { bottom: 0; right: 0; border-bottom-width: var(--guide-thickness); border-right-width: var(--guide-thickness); border-bottom-right-radius: 20px; }
-
-        .scan-box.success .corner { border-color: var(--guide-active); }
-        .scan-box.success { transform: scale(0.97); box-shadow: 0 0 0 4000px rgba(0,0,0,0.85); }
+        /* 成功時のスタイル変更用クラス */
+        #svg-overlay.success .guide-corner {
+            stroke: var(--guide-active);
+        }
 
         /* --- スタート画面 --- */
         #start-screen {
@@ -167,15 +145,13 @@
     <div id="scanner-wrapper">
         <div id="reader"></div>
         
-        <!-- ガイド枠（初期非表示） -->
-        <div class="scan-overlay" id="scan-overlay">
-            <div class="scan-box" id="scan-box">
-                <span class="corner tl"></span>
-                <span class="corner tr"></span>
-                <span class="corner bl"></span>
-                <span class="corner br"></span>
-            </div>
-        </div>
+        <!-- SVGによる完璧なマスクとガイド -->
+        <svg id="svg-overlay" width="100%" height="100%">
+            <!-- マスクレイヤー -->
+            <path id="mask-path" class="mask-path" d="" />
+            <!-- 四隅のガイド -->
+            <path id="guide-path" class="guide-corner" d="" />
+        </svg>
     </div>
 
     <!-- 結果表示 -->
@@ -198,12 +174,57 @@
         
         // UI要素
         const startScreen = document.getElementById('start-screen');
-        const scanOverlay = document.getElementById('scan-overlay');
-        const scanBox = document.getElementById('scan-box');
+        const svgOverlay = document.getElementById('svg-overlay');
+        const maskPath = document.getElementById('mask-path');
+        const guidePath = document.getElementById('guide-path');
         const resultModal = document.getElementById('result-modal');
         const resFormat = document.getElementById('res-format');
         const resText = document.getElementById('res-text');
         const btnSearch = document.getElementById('btn-search');
+
+        // SVG描画を更新する関数（レスポンシブ対応）
+        function updateOverlay() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            
+            // 読み取り枠のサイズ計算（画面幅の70%）
+            const boxW = Math.min(600, w * 0.70);
+            const boxH = boxW * 0.8; // アスペクト比
+            
+            // 枠の左上座標
+            const x = (w - boxW) / 2;
+            const y = (h - boxH) / 2;
+            const r = 24; // 角丸の半径
+            const lineLen = 30; // コーナー線の長さ
+
+            // 1. マスクパスの生成（全画面 - 中央の穴）
+            // M 0 0 H w V h H 0 Z は全画面の四角
+            // M x y ... は中央の穴（逆回りで描くと抜ける）
+            const dMask = `
+                M 0 0 H ${w} V ${h} H 0 Z
+                M ${x+r} ${y} 
+                H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} 
+                V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} 
+                H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} 
+                V ${y+r} Q ${x} ${y} ${x+r} ${y} Z
+            `;
+            maskPath.setAttribute('d', dMask);
+
+            // 2. ガイド線パスの生成（四隅だけ描画）
+            const dGuide = `
+                M ${x} ${y+lineLen} V ${y+r} Q ${x} ${y} ${x+r} ${y} H ${x+lineLen}
+                M ${x+boxW-lineLen} ${y} H ${x+boxW-r} Q ${x+boxW} ${y} ${x+boxW} ${y+r} V ${y+lineLen}
+                M ${x+boxW} ${y+boxH-lineLen} V ${y+boxH-r} Q ${x+boxW} ${y+boxH} ${x+boxW-r} ${y+boxH} H ${x+boxW-lineLen}
+                M ${x+lineLen} ${y+boxH} H ${x+r} Q ${x} ${y+boxH} ${x} ${y+boxH-r} V ${y+boxH-lineLen}
+            `;
+            guidePath.setAttribute('d', dGuide);
+
+            // ライブラリに渡すサイズ設定もこれに合わせる
+            return { width: Math.floor(boxW), height: Math.floor(boxH) };
+        }
+
+        // 画面リサイズ時に再計算
+        window.addEventListener('resize', updateOverlay);
 
         // 音声
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -224,28 +245,20 @@
         // カメラ起動
         function startCamera() {
             const tapMsg = document.querySelector('.tap-msg');
-            if (tapMsg.innerText === "Starting...") return; // 連打防止
+            if (tapMsg.innerText === "Starting...") return;
             tapMsg.innerText = "Starting...";
             
-            // 画面サイズ取得
-            const width = window.innerWidth;
-            const height = window.innerHeight;
-
-            // CSSの .scan-box のサイズ定義に合わせるための計算
-            // CSSでは width: 70vw, aspect-ratio: 1/0.8 としているので
-            // これに近い値を qrbox に設定して認識エリアを視覚と一致させる
-            const boxWidth = Math.floor(width * 0.70); 
-            const boxHeight = Math.floor(boxWidth * 0.8);
-
+            // 現在の画面サイズに合わせて枠を計算・描画
+            const qrBoxSize = updateOverlay();
+            
             const config = {
                 fps: 15,
-                qrbox: { width: boxWidth, height: boxHeight },
-                aspectRatio: height / width, // 全画面フィット用
+                qrbox: qrBoxSize,
+                aspectRatio: window.innerHeight / window.innerWidth,
                 videoConstraints: {
-                    facingMode: "environment", // 背面カメラ
-                    focusMode: "continuous"    // オートフォーカス
+                    facingMode: "environment",
+                    focusMode: "continuous"
                 },
-                // 全コード対応
                 formatsToSupport: [
                     Html5QrcodeSupportedFormats.QR_CODE,
                     Html5QrcodeSupportedFormats.EAN_13,
@@ -266,19 +279,15 @@
                 config,
                 onScanSuccess
             ).then(() => {
-                // 起動成功時のみ実行
                 isScanning = true;
                 
-                // スタート画面を消して、ガイド枠を表示
-                startScreen.style.opacity = 0;
-                setTimeout(() => {
-                    startScreen.style.display = 'none';
-                    scanOverlay.classList.add('active'); // ここで枠を表示
-                }, 300);
+                // スタート画面を完全に消してから、枠を表示
+                startScreen.style.display = 'none'; 
+                svgOverlay.classList.add('active'); // フェードイン
 
             }).catch(err => {
                 console.error(err);
-                alert("カメラを起動できませんでした。権限を確認してください。");
+                alert("カメラ起動エラー: " + err);
                 tapMsg.innerText = "Tap to Retry";
             });
         }
@@ -287,15 +296,13 @@
             if (!isScanning) return;
             isScanning = false;
             
-            // フィードバック
             playSuccessSound();
             if (navigator.vibrate) navigator.vibrate([50]);
             
-            // カメラ停止（フリーズ）
             html5QrCode.pause(true);
             
-            // UI更新
-            scanBox.classList.add('success');
+            // SVGの色を変える
+            svgOverlay.classList.add('success');
             
             setTimeout(() => {
                 resText.innerText = decodedText;
@@ -315,7 +322,7 @@
 
         function resetScanner() {
             resultModal.classList.remove('visible');
-            scanBox.classList.remove('success');
+            svgOverlay.classList.remove('success');
             
             setTimeout(() => {
                 html5QrCode.resume();
@@ -331,6 +338,9 @@
                 setTimeout(() => btn.innerText = original, 1000);
             });
         }
+
+        // 初期描画
+        updateOverlay();
     </script>
 </body>
 </html>
